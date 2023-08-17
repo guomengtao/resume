@@ -1,3 +1,5 @@
+<img width="680" alt="Screenshot 2023-08-17 at 9 05 05 PM" src="https://github.com/guomengtao/resume/assets/14043203/9470448e-5ef4-41d0-b84a-94a8a3da5dc7">
+
 Tom Guo 
 I am a full-stack developer. 
 My email address is guomengtao@gmail.com. 
