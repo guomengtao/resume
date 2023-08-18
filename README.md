@@ -1,4 +1,4 @@
-<img width="680" alt="Screenshot 2023-08-17 at 9 05 05 PM" src="https://github.com/guomengtao/resume/assets/14043203/9470448e-5ef4-41d0-b84a-94a8a3da5dc7">
+<img width="671" alt="Screenshot 2023-08-18 at 9 57 04 PM" src="https://github.com/guomengtao/resume/assets/14043203/ef90363a-62ca-4adf-aa25-6802ea80f60b">
 
 Tom Guo 
 I am a full-stack developer. 
