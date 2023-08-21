@@ -14,11 +14,14 @@ My email address is guomengtao@gmail.com.
 - Fiver: https://www.fiverr.com/s/rqjbRy
 
 - https://www.eslcafe.com/ [Find job ,feel not well]
-- cn.indeed.com [Jump to another website]
+- cn.indeed.com [sometime Jump to another website]
+- www.indeed.com
 - https://j1visa.state.gov/programs/early-career-stem-research-initiative/#get-started  [work visa USA]
 - https://app.resumebuilder.com/quick-editor/  [Edit resume]
 - https://www.upwork.com/freelancers/~016aaf54a16caba493?viewMode=1
 - https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/eligibility/federal-skilled-workers.html
+- https://sfbay.craigslist.org/ [feel not easy]
+- https://www.dice.com/home/home-feed [Great ,easy apply]
 
 ## Introduction
 I am a lecturer who specializes in front-end and full-stack technology. I am the author of ThinkPHP Weekly and have also taught an introduction course on Larravel 5.6 in English on Udemy.com. In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. I am proud to have taught more than 10,000 students in more than 500 courses. 
