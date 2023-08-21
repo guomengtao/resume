@@ -25,14 +25,14 @@ My email address is guomengtao@gmail.com.
 
  #### Here are some places to look for a job:
    Company websites: Some companies post job openings on their websites
-   LinkedIn: You can find job listings and communicate with your network
-   CareerBuilder: Matches jobs to keywords in your resume
-   Indeed: Consistently ranked as one of the best job posting sites
-   Job fairs: Companies and potential employees network at these events
-   Recruiters: Many companies use recruiters to find talent
-   USAJobs: The official website for government jobs
-   SimplyHired: Aggregates jobs from company career sites and other job boards
-   Networking: People tend to do business with people they know and like
+   - LinkedIn: You can find job listings and communicate with your network
+   - CareerBuilder: Matches jobs to keywords in your resume
+   - Indeed: Consistently ranked as one of the best job posting sites
+   - Job fairs: Companies and potential employees network at these events
+   - Recruiters: Many companies use recruiters to find talent
+   - USAJobs: The official website for government jobs
+   - SimplyHired: Aggregates jobs from company career sites and other job boards
+   - Networking: People tend to do business with people they know and like
 
 ## Introduction
 I am a lecturer who specializes in front-end and full-stack technology. I am the author of ThinkPHP Weekly and have also taught an introduction course on Larravel 5.6 in English on Udemy.com. In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. I am proud to have taught more than 10,000 students in more than 500 courses. 
