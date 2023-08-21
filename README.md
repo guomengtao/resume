@@ -14,6 +14,8 @@ My email address is guomengtao@gmail.com.
 - Fiver: https://www.fiverr.com/s/rqjbRy
 
   whatsapp:
+- https://www.eslcafe.com/ [Find job ,feel not well]
+- cn.indeed.com [Jump to another website]
 
 I am a lecturer who specializes in front-end and full-stack technology. I am the author of ThinkPHP Weekly and have also taught an introduction course on Larravel 5.6 in English on Udemy.com. In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. I am proud to have taught more than 10,000 students in more than 500 courses. 
 
