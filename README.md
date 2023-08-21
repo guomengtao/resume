@@ -1,6 +1,6 @@
 <img width="671" alt="Screenshot 2023-08-18 at 9 57 04 PM" src="https://github.com/guomengtao/resume/assets/14043203/ef90363a-62ca-4adf-aa25-6802ea80f60b">
 
-Tom Guo 
+### Tom Guo 
 I am a full-stack developer. 
 My email address is guomengtao@gmail.com. 
  
@@ -10,9 +10,8 @@ My email address is guomengtao@gmail.com.
 - FaceBook:https://www.facebook.com/guomengtao/
 - Tiktok:https://www.tiktok.com/@guomengtao
 - Twitter:https://twitter.com/guomengtao1
-
+- 
 - Fiver: https://www.fiverr.com/s/rqjbRy
-
 - https://www.eslcafe.com/ [Find job ,feel not well]
 - cn.indeed.com [sometime Jump to another website]
 - www.indeed.com
@@ -26,21 +25,28 @@ My email address is guomengtao@gmail.com.
  #### Here are some places to look for a job:
  - Company websites: Some companies post job openings on their websites
  - LinkedIn: You can find job listings and communicate with your network
-   - CareerBuilder: Matches jobs to keywords in your resume
-   - Indeed: Consistently ranked as one of the best job posting sites
-   - Job fairs: Companies and potential employees network at these events
-   - Recruiters: Many companies use recruiters to find talent
-   - USAJobs: The official website for government jobs
-   - SimplyHired: Aggregates jobs from company career sites and other job boards
-   - Networking: People tend to do business with people they know and like
+ - CareerBuilder: Matches jobs to keywords in your resume
+ - Indeed: Consistently ranked as one of the best job posting sites
+ - Job fairs: Companies and potential employees network at these events
+ - Recruiters: Many companies use recruiters to find talent
+ - USAJobs: The official website for government jobs
+ - SimplyHired: Aggregates jobs from company career sites and other job boards
+ - Networking: People tend to do business with people they know and like
 
-## Introduction
-I am a lecturer who specializes in front-end and full-stack technology. I am the author of ThinkPHP Weekly and have also taught an introduction course on Larravel 5.6 in English on Udemy.com. In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. I am proud to have taught more than 10,000 students in more than 500 courses. 
+## Introduction sytle-1
+I am a lecturer who specializes in front-end and full-stack technology. I was the author of ThinkPHP Weekly and have also taught an introduction course on Larravel 5.6 in English on Udemy.com. In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. I am proud to have taught more than 10,000 students in more than 500 courses.
 
-## Key skills 
+## Introdction style-2
+I am both an author and a lecturer.
+I am the author of ThinkPHP Weekly.
+I specialize in lecturing on front-end and full-stack technology.
+In China, various technical platforms, such as Mucor, Segment Fault, CSDN, and W3c, have collaborated with me to develop video lectures on ThinkPHP5 and Larravel5.6. 
+I have also taught an introduction course on Larravel 5.6 in English on Udemy.com
+I am proud to have taught more than 10,000 students in more than 500 courses. 
+
+## Key Skills 
 
 Laravel and PHP 
-
 HTML5 + CSS3 
 
 Javascript and Bootstrap 
