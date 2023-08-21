@@ -24,8 +24,8 @@ My email address is guomengtao@gmail.com.
 - https://www.dice.com/home/home-feed [Great ,easy apply]
 
  #### Here are some places to look for a job:
-   Company websites: Some companies post job openings on their websites
-   - LinkedIn: You can find job listings and communicate with your network
+ - Company websites: Some companies post job openings on their websites
+ - LinkedIn: You can find job listings and communicate with your network
    - CareerBuilder: Matches jobs to keywords in your resume
    - Indeed: Consistently ranked as one of the best job posting sites
    - Job fairs: Companies and potential employees network at these events
