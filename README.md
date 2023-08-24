@@ -10,6 +10,8 @@ My email address is guomengtao@gmail.com.
 - FaceBook:https://www.facebook.com/guomengtao/
 - Tiktok:https://www.tiktok.com/@guomengtao
 - Twitter:https://twitter.com/guomengtao1
+
+- https://www.google.com/search?q=laravel+jobs&rlz=1C5GCEM_en__1028US1028&oq=laravel+job&gs_lcrp=EgZjaHJvbWUqBwgAEAAYgAQyBwgAEAAYgAQyBggBEEUYOTIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABKgCALACAA&sourceid=chrome&ie=UTF-8&ibp=htl;jobs&sa=X&sqi=2&ved=2ahUKEwjctarGiPSAAxUIC0QIHU8SBawQkd0GegQIExAB#fpstate=tldetail&htivrt=jobs&htiq=laravel+jobs&htidocid=I-kk72IXxNQAAAAAAAAAAA%3D%3D
 - 
 - Fiver: https://www.fiverr.com/s/rqjbRy
 - https://www.eslcafe.com/ [Find job ,feel not well]
