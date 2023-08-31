@@ -13,7 +13,9 @@ My email address is guomengtao@gmail.com.
 - https://www.monster.com/
 
 - https://www.google.com/search?q=laravel+jobs&rlz=1C5GCEM_en__1028US1028&oq=laravel+job&gs_lcrp=EgZjaHJvbWUqBwgAEAAYgAQyBwgAEAAYgAQyBggBEEUYOTIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABKgCALACAA&sourceid=chrome&ie=UTF-8&ibp=htl;jobs&sa=X&sqi=2&ved=2ahUKEwjctarGiPSAAxUIC0QIHU8SBawQkd0GegQIExAB#fpstate=tldetail&htivrt=jobs&htiq=laravel+jobs&htidocid=I-kk72IXxNQAAAAAAAAAAA%3D%3D
-- 
+- https://guomengtao.000webhostapp.com/
+- https://rinuo.000webhostapp.com/
+- https://guomengtao.wordpress.com/
 - Fiver: https://www.fiverr.com/s/rqjbRy
 - https://www.eslcafe.com/ [Find job ,feel not well]
 - cn.indeed.com [sometime Jump to another website]
