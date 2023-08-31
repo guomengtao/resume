@@ -1,3 +1,5 @@
+![Tom Resume 20230901](https://github.com/guomengtao/resume/assets/14043203/3d96bee6-1253-4c8d-8516-d0ef11dd5479)
+
 <img width="671" alt="Screenshot 2023-08-18 at 9 57 04 PM" src="https://github.com/guomengtao/resume/assets/14043203/ef90363a-62ca-4adf-aa25-6802ea80f60b">
 
 ### Tom Guo 
