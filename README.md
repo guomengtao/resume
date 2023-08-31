@@ -4,23 +4,25 @@
 
 ### Tom Guo 
 I am a full-stack developer. 
-My email address is guomengtao@gmail.com. 
- 
+My email address is guomengtao@gmail.com
+
+ ### Web
 - GitHub: https://www.github.com/guomengtao 
 - Udemy: https://www.udemy.com/laravavel56/  
 - YouTube: http://youtube.com/@guomengtao 
 - FaceBook:https://www.facebook.com/guomengtao/
 - Tiktok:https://www.tiktok.com/@guomengtao
 - Twitter:https://twitter.com/guomengtao1
-- https://www.monster.com/
-
-- https://www.google.com/search?q=laravel+jobs&rlz=1C5GCEM_en__1028US1028&oq=laravel+job&gs_lcrp=EgZjaHJvbWUqBwgAEAAYgAQyBwgAEAAYgAQyBggBEEUYOTIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABKgCALACAA&sourceid=chrome&ie=UTF-8&ibp=htl;jobs&sa=X&sqi=2&ved=2ahUKEwjctarGiPSAAxUIC0QIHU8SBawQkd0GegQIExAB#fpstate=tldetail&htivrt=jobs&htiq=laravel+jobs&htidocid=I-kk72IXxNQAAAAAAAAAAA%3D%3D
 - https://guomengtao.000webhostapp.com/
 - https://rinuo.000webhostapp.com/
 - https://guomengtao.wordpress.com/
+
+
+ ### Find JOB 
+- https://www.monster.com/
+- https://www.google.com/search?q=laravel+jobs&rlz=1C5GCEM_en__1028US1028&oq=laravel+job&gs_lcrp=EgZjaHJvbWUqBwgAEAAYgAQyBwgAEAAYgAQyBggBEEUYOTIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABKgCALACAA&sourceid=chrome&ie=UTF-8&ibp=htl;jobs&sa=X&sqi=2&ved=2ahUKEwjctarGiPSAAxUIC0QIHU8SBawQkd0GegQIExAB#fpstate=tldetail&htivrt=jobs&htiq=laravel+jobs&htidocid=I-kk72IXxNQAAAAAAAAAAA%3D%3D
 - Fiver: https://www.fiverr.com/s/rqjbRy
 - https://www.eslcafe.com/ [Find job ,feel not well]
-- cn.indeed.com [sometime Jump to another website]
 - www.indeed.com
 - https://j1visa.state.gov/programs/early-career-stem-research-initiative/#get-started  [work visa USA]
 - https://app.resumebuilder.com/quick-editor/  [Edit resume]
@@ -55,13 +57,9 @@ I am proud to have taught more than 10,000 students in more than 500 courses.
 
 Laravel and PHP 
 HTML5 + CSS3 
-
 Javascript and Bootstrap 
-
 MySQL and SQL 
-
 Django  and Python
-
 Java or JavaEE 
 
 ## Professional Experience 
