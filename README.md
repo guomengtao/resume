@@ -23,6 +23,7 @@ My email address is guomengtao@gmail.com
 - http://rinuo.medianewsonline.com/ https://www.awardspace.com/ 01 Sep, 2024
 - http://tom.rinuo.x10.mx/ https://x10hosting.com/
 - http://rinuo.x10.mx/  https://x10hosting.com/
+- https://guomengtao.wixsite.com/resume
 
 
 
