@@ -83,7 +83,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.6.2</h1>
+    <h1>Chatroom Demo v1.6.3</h1>
     <div id="online-users">在线用户 (0):</div>
     <div id="chat"></div>
     <div>
@@ -208,7 +208,13 @@
 
       loadMessages();
 
-      const messagesChannel = supabaseClient.channel('realtime:public:messages');
+      const messagesChannel = supabaseClient.channel('realtime:public:messages', {
+        config: {
+          broadcast: {
+            self: true
+          }
+        }
+      });
 
       messagesChannel
         .on(
@@ -219,15 +225,14 @@
             table: 'messages'
           },
           payload => {
-            console.log("Realtime subscription callback triggered");
-            console.log("New message received:", payload.new);
             const { username: sender, content, inserted_at } = payload.new;
             const time = new Date(inserted_at).toLocaleTimeString();
-            console.log("Appending received message to chat UI:", sender, content);
+            console.log("Realtime message received:", sender, content);
             appendMessage(`<strong>${sender}</strong>: ${content}`, time);
           }
         )
-        .subscribe((status) => {
+        .subscribe()
+        .then((status) => {
           console.log('Message channel subscription status:', status);
         });
       console.log("Subscribed to messagesChannel:", messagesChannel);
