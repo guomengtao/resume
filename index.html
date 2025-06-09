@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chatroom Demo</title>
+  <title>Chatroom Demo v1.6.1</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -182,7 +182,7 @@
 
     function appendMessage(text, time = '') {
       const p = document.createElement('p');
-      p.textContent = time ? `[${time}] ${text}` : text;
+      p.innerHTML = time ? `<strong>[${time}]</strong> ${text}` : text;
       chat.appendChild(p);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -207,16 +207,26 @@
 
     loadMessages();
 
-    const messagesChannel = supabaseClient.channel('public:messages');
+    const messagesChannel = supabaseClient.channel('realtime:public:messages');
 
-    messagesChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-      console.log("New message received:", payload.new);
-      const { username, content, inserted_at } = payload.new;
-      const time = new Date(inserted_at).toLocaleTimeString();
-      appendMessage(`${username}: ${content}`, time);
-    });
-
-    messagesChannel.subscribe();
+    messagesChannel
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        payload => {
+          console.log("New message received:", payload.new);
+          const { username: sender, content, inserted_at } = payload.new;
+          const time = new Date(inserted_at).toLocaleTimeString();
+          appendMessage(`<strong>${sender}</strong>: ${content}`, time);
+        }
+      )
+      .subscribe((status) => {
+        console.log('Message channel subscription status:', status);
+      });
 
     send.onclick = async () => {
       const message = input.value.trim();
@@ -230,8 +240,7 @@
         console.error("Error sending message:", error);
       } else {
         console.log("Message sent successfully");
-        const now = new Date().toLocaleTimeString();
-        appendMessage(`${username}: ${message}`, now);
+        // We no longer append immediately; we wait for the server push
         input.value = '';
       }
     };
