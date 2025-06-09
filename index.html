@@ -1,1 +1,85 @@
-<!DOCTYPE html><html><head><title>Chatroom Demo</title></head><body><h1>Hello Chatroom!</h1></body></html>
+<script>
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const send = document.getElementById('send');
+
+  const onlineUsersDiv = document.createElement('div');
+  onlineUsersDiv.style.marginBottom = '10px';
+  document.body.insertBefore(onlineUsersDiv, chat);
+
+  const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+  // Generate a random nickname
+  let username = 'User' + Math.floor(Math.random() * 1000);
+
+  // Display online users and their nicknames
+  function updateOnlineUsers(presence) {
+    const users = presence.state;
+    const names = Object.values(users).map(u => u.metadata.username);
+    onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
+  }
+
+  // Subscribe to presence to track online users
+  const presenceChannel = supabase.channel('presence:messages')
+    .on('presence', { event: 'sync' }, () => {
+      updateOnlineUsers(presenceChannel.presence);
+    })
+    .subscribe();
+
+  // Join presence with username metadata
+  presenceChannel.track({ username });
+
+  // Append message to chat UI
+  function appendMessage(text, time = '') {
+    const p = document.createElement('p');
+    p.textContent = time ? `[${time}] ${text}` : text;
+    chat.appendChild(p);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  // Load existing messages on page load
+  async function loadMessages() {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('inserted_at', { ascending: true })
+      .limit(100);
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+    data.forEach(msg => {
+      const time = new Date(msg.inserted_at).toLocaleTimeString();
+      appendMessage(`${msg.username}: ${msg.content}`, time);
+    });
+  }
+
+  loadMessages();
+
+  // Listen for new messages and append them
+  supabase
+    .channel('public:messages')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      const { username, content, inserted_at } = payload.new;
+      const time = new Date(inserted_at).toLocaleTimeString();
+      appendMessage(`${username}: ${content}`, time);
+    })
+    .subscribe();
+
+  // Send message
+  send.onclick = async () => {
+    const message = input.value.trim();
+    if (!message) return;
+    await supabase.from('messages').insert([{ username, content: message }]);
+    input.value = '';
+  };
+
+  // Send message on Enter key
+  input.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      send.click();
+    }
+  });
+</script>
