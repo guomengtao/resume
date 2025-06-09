@@ -128,62 +128,96 @@
       let presenceChannel;
 
       function updateOnlineUsers(presence) {
-        console.log("Updating online users presence:", presence);
-        const users = presence.state;
+        console.log("updateOnlineUsers called with presence:", presence);
 
-        // Filter valid users with metadata and username
-        const userEntries = Object.entries(users).filter(([key, user]) => user.metadata && user.metadata.username);
-        const names = userEntries.map(([key, user]) => user.metadata.username);
-
-        // Show at least 1 user if no others online (self)
-        const displayCount = names.length > 0 ? names.length : 1;
-        onlineUsersDiv.textContent = `在线用户 (${displayCount}): ${names.length > 0 ? names.join(', ') : username}`;
-
-        if (userEntries.length === 0) {
-          userListDiv.textContent = '无在线用户';
-          // But still show current user
-          const p = document.createElement('p');
-          p.textContent = `${username} (加入时间: 现在)`;
-          userListDiv.appendChild(p);
+        if (!presence || !presence.state) {
+          console.log("Presence or presence.state is empty or undefined");
+          onlineUsersDiv.textContent = "在线用户 (0):";
+          userListDiv.innerHTML = "";
           return;
         }
 
-        userListDiv.innerHTML = '';
-        userEntries.forEach(([key, user]) => {
-          const p = document.createElement('p');
-          p.textContent = `${user.metadata.username} (加入时间: ${new Date(user.joined_at).toLocaleTimeString()})`;
+        const users = presence.state;
+        console.log("Current presence.state users:", users);
+
+        const userEntries = Object.entries(users).filter(([key, user]) => {
+          const hasMeta = user?.metas?.length > 0;
+          console.log(`User ${key} has metas:`, hasMeta);
+          return hasMeta;
+        });
+
+        console.log("Filtered user entries with metas:", userEntries);
+
+        if (userEntries.length === 0) {
+          console.log("No users with metas found");
+          onlineUsersDiv.textContent = "在线用户 (0):";
+          userListDiv.innerHTML = "";
+          return;
+        }
+
+        const names = userEntries.map(([_, user]) => user.metas[0]?.username || "Unknown");
+        console.log("Online usernames:", names);
+
+        onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
+
+        userListDiv.innerHTML = "";
+        userEntries.forEach(([_, user]) => {
+          const uname = user.metas[0]?.username || "Unknown";
+          const joinedTime = user.metas[0]?.joined_at
+            ? new Date(user.metas[0].joined_at).toLocaleTimeString()
+            : "未知时间";
+          const p = document.createElement("p");
+          p.textContent = `${uname} (加入时间: ${joinedTime})`;
           userListDiv.appendChild(p);
         });
       }
+
+      // Generate a unique key for this user/session for presence tracking
+      function generatePresenceKey() {
+        // Use a random string plus timestamp for uniqueness
+        return `${username}_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
+      }
+      let presenceKey = generatePresenceKey();
 
       nicknameInput.addEventListener('input', () => {
         const newName = nicknameInput.value.trim();
         if (newName.length > 0) {
           username = newName;
+          // Regenerate presence key and re-track to update presence reliably
+          presenceKey = generatePresenceKey();
           if (presenceChannel) {
-            presenceChannel.track({ username }).catch(console.error);
+            presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey }).catch(console.error);
             console.log("Username changed to:", username);
           }
         }
       });
 
+      // Subscribe to presence channel with unique key
       presenceChannel = await supabaseClient.channel('presence:messages', {
-        config: { presence: { key: username } }
+        config: { presence: { key: presenceKey } }
       });
 
+      // Improved presence sync event: update users after presence state is ready
       presenceChannel.on('presence', { event: 'sync' }, () => {
         console.log("Presence sync event triggered");
-        updateOnlineUsers(presenceChannel.presence);
+        setTimeout(() => {
+          updateOnlineUsers(presenceChannel.presence);
+        }, 100);
       });
 
       await presenceChannel.subscribe();
 
-      presenceChannel.track({ username }).catch(console.error);
-      console.log("Presence tracking started for username:", username);
+      // Track presence with unique key and joined_at timestamp
+      presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey }).catch(console.error);
+      console.log("Presence tracking started for username:", username, "with key:", presenceKey);
 
       function appendMessage(text, time = '') {
         const p = document.createElement('p');
-        p.innerHTML = time ? `<strong>[${time}]</strong> ${text}` : text;
+        if (time) {
+          p.innerHTML = `<strong>[${time}]</strong> <span style="color:#3366cc;font-weight:bold;">${text}</span>`;
+        } else {
+          p.innerHTML = `<span style="color:#3366cc;font-weight:bold;">${text}</span>`;
+        }
         chat.appendChild(p);
         chat.scrollTop = chat.scrollHeight;
       }
@@ -228,24 +262,17 @@
             const { username: sender, content, inserted_at } = payload.new;
             const time = new Date(inserted_at).toLocaleTimeString();
             console.log("Realtime message received:", sender, content, inserted_at);
-            if (sender && content) {
-              appendMessage(`<strong>${sender}</strong>: ${content}`, time);
-              console.log("Message displayed in chat box");
-            } else {
-              console.warn("Message data incomplete:", payload.new);
-            }
+            appendMessage(`<span style="color:#3366cc;">${sender || "Unknown"}</span>: ${content || "(No content)"}`, time);
+            console.log("Message displayed in chat box");
           }
         )
         .subscribe((status) => {
-          console.log('Message channel subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to message channel');
+          } else {
+            console.warn('Subscription status changed:', status);
+          }
         });
-
-      const { error: subError } = await messagesChannel.subscribe();
-      if (subError) {
-        console.error('Failed to subscribe to message channel:', subError);
-      } else {
-        console.log('Successfully subscribed to message channel');
-      }
 
       send.onclick = async () => {
         const message = input.value.trim();
@@ -259,6 +286,8 @@
           console.error("Error sending message:", error);
         } else {
           console.log("Message sent successfully, waiting for realtime update...");
+          const time = new Date().toLocaleTimeString();
+          // appendMessage(`<span style="color:#3366cc;">${username}</span>: ${message}`, time);
           input.value = '';
         }
       };
