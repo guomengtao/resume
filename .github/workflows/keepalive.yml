@@ -1,36 +1,40 @@
 name: Supabase Keep Alive
 
 on:
+  workflow_dispatch:  # 👈 手动触发按钮
   schedule:
-    # 每10分钟运行一次
-    - cron: "*/10 * * * *"
+    - cron: "*/10 * * * *"  # 每10分钟执行一次
 
 jobs:
-  keep-wake:
+  ping-and-post:
     runs-on: ubuntu-latest
-    timeout-minutes: 1
 
     steps:
-      - name: Curl keepalive ping
-        run: curl --max-time 10 https://666.rinuo.com || echo "Ping failed"
-
-      - name: Conditionally send daily message
+      - name: Curl the website
         run: |
-          # 获取今天的日期
-          TODAY=$(date +"%Y-%m-%d")
-          # 用 SHA 随机生成一个小时（0~23）
-          RANDOM_HOUR=$(echo -n "$TODAY" | sha1sum | awk '{print $1}' | cut -c1-2 | xargs printf "%d" 0x)
-          SELECTED_HOUR=$((RANDOM_HOUR % 24))
+          echo "Pinging site..."
+          curl -sSf https://666.rinuo.com || echo "Curl failed"
+
+      - name: Maybe send daily message
+        env:
+          SUPABASE_URL: https://vbpbytebpaihpauwcryn.supabase.co
+          SUPABASE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...（你自己的完整密钥）
+        run: |
+          echo "Checking if it's time to send daily message..."
+          TZ=Asia/Shanghai
+          DATE=$(date +"%Y-%m-%d")
           CURRENT_HOUR=$(date +"%H")
+          SELECTED_HOUR=$(expr $(echo $((RANDOM % 14 + 8))))  # between 8~21
 
           echo "Target hour: $SELECTED_HOUR, Now: $CURRENT_HOUR"
 
-          if [ "$CURRENT_HOUR" -eq "$SELECTED_HOUR" ]; then
-            MESSAGE="Today is $TODAY. Sent from GitHub Actions at $(date +'%H:%M:%S')"
-            curl --max-time 15 -X POST https://666.rinuo.com/send \
+          if [ "$CURRENT_HOUR" = "$SELECTED_HOUR" ]; then
+            echo "Sending daily message..."
+            curl -X POST "$SUPABASE_URL/rest/v1/messages" \
+              -H "apikey: $SUPABASE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"username\": \"bot-github\", \"content\": \"$MESSAGE\"}"
-            echo "Message sent: $MESSAGE"
+              -d "{\"username\":\"bot\",\"content\":\"Today is $DATE\"}"
           else
-            echo "Skipping message. Not in target hour."
+            echo "Not the selected hour. Skipping send."
           fi
