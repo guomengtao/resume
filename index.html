@@ -83,7 +83,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.5</h1>
+    <h1>Chatroom Demo v1.6.1</h1>
     <div id="online-users">在线用户 (0):</div>
     <div id="chat"></div>
     <div>
@@ -108,150 +108,154 @@
     const onlineUsersDiv = document.getElementById('online-users');
     const userListDiv = document.getElementById('user-list');
 
-    const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+    async function init() {
+      const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
 
-    console.log("Creating Supabase client...");
-    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+      console.log("Creating Supabase client...");
+      const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    const randomNicknames = [
-      'Eagle', 'Tiger', 'Lion', 'Falcon', 'Wolf',
-      'Hawk', 'Panther', 'Bear', 'Fox', 'Dragon',
-      'Shark', 'Phoenix', 'Leopard', 'Cheetah', 'Jaguar'
-    ];
+      const randomNicknames = [
+        'Eagle', 'Tiger', 'Lion', 'Falcon', 'Wolf',
+        'Hawk', 'Panther', 'Bear', 'Fox', 'Dragon',
+        'Shark', 'Phoenix', 'Leopard', 'Cheetah', 'Jaguar'
+      ];
 
-    let username = randomNicknames[Math.floor(Math.random() * randomNicknames.length)] + Math.floor(Math.random() * 1000);
-    nicknameInput.value = username;
-    console.log("Generated username:", username);
+      let username = randomNicknames[Math.floor(Math.random() * randomNicknames.length)] + Math.floor(Math.random() * 1000);
+      nicknameInput.value = username;
+      console.log("Generated username:", username);
 
-    let presenceChannel;
+      let presenceChannel;
 
-    function updateOnlineUsers(presence) {
-      console.log("Updating online users presence:", presence);
-      const users = presence.state;
+      function updateOnlineUsers(presence) {
+        console.log("Updating online users presence:", presence);
+        const users = presence.state;
 
-      // Filter valid users with metadata and username
-      const userEntries = Object.entries(users).filter(([key, user]) => user.metadata && user.metadata.username);
-      const names = userEntries.map(([key, user]) => user.metadata.username);
+        // Filter valid users with metadata and username
+        const userEntries = Object.entries(users).filter(([key, user]) => user.metadata && user.metadata.username);
+        const names = userEntries.map(([key, user]) => user.metadata.username);
 
-      // Show at least 1 user if no others online (self)
-      const displayCount = names.length > 0 ? names.length : 1;
-      onlineUsersDiv.textContent = `在线用户 (${displayCount}): ${names.length > 0 ? names.join(', ') : username}`;
+        // Show at least 1 user if no others online (self)
+        const displayCount = names.length > 0 ? names.length : 1;
+        onlineUsersDiv.textContent = `在线用户 (${displayCount}): ${names.length > 0 ? names.join(', ') : username}`;
 
-      if (userEntries.length === 0) {
-        userListDiv.textContent = '无在线用户';
-        // But still show current user
-        const p = document.createElement('p');
-        p.textContent = `${username} (加入时间: 现在)`;
-        userListDiv.appendChild(p);
-        return;
-      }
-
-      userListDiv.innerHTML = '';
-      userEntries.forEach(([key, user]) => {
-        const p = document.createElement('p');
-        p.textContent = `${user.metadata.username} (加入时间: ${new Date(user.joined_at).toLocaleTimeString()})`;
-        userListDiv.appendChild(p);
-      });
-    }
-
-    nicknameInput.addEventListener('input', () => {
-      const newName = nicknameInput.value.trim();
-      if (newName.length > 0) {
-        username = newName;
-        if (presenceChannel) {
-          presenceChannel.track({ username }).catch(console.error);
-          console.log("Username changed to:", username);
+        if (userEntries.length === 0) {
+          userListDiv.textContent = '无在线用户';
+          // But still show current user
+          const p = document.createElement('p');
+          p.textContent = `${username} (加入时间: 现在)`;
+          userListDiv.appendChild(p);
+          return;
         }
+
+        userListDiv.innerHTML = '';
+        userEntries.forEach(([key, user]) => {
+          const p = document.createElement('p');
+          p.textContent = `${user.metadata.username} (加入时间: ${new Date(user.joined_at).toLocaleTimeString()})`;
+          userListDiv.appendChild(p);
+        });
       }
-    });
 
-    presenceChannel = supabaseClient.channel('presence:messages', {
-      config: { presence: { key: username } }
-    });
-
-    presenceChannel.on('presence', { event: 'sync' }, () => {
-      console.log("Presence sync event triggered");
-      updateOnlineUsers(presenceChannel.presence);
-    });
-
-    presenceChannel.subscribe();
-
-    presenceChannel.track({ username }).catch(console.error);
-    console.log("Presence tracking started for username:", username);
-
-    function appendMessage(text, time = '') {
-      const p = document.createElement('p');
-      p.innerHTML = time ? `<strong>[${time}]</strong> ${text}` : text;
-      chat.appendChild(p);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    async function loadMessages() {
-      console.log("Loading existing messages...");
-      const { data, error } = await supabaseClient
-        .from('messages')
-        .select('*')
-        .order('inserted_at', { ascending: true })
-        .limit(100);
-      if (error) {
-        console.error('Error loading messages:', error);
-        return;
-      }
-      console.log("Loaded messages:", data.length);
-      data.forEach(msg => {
-        const time = new Date(msg.inserted_at).toLocaleTimeString();
-        appendMessage(`${msg.username}: ${msg.content}`, time);
-      });
-    }
-
-    loadMessages();
-
-    const messagesChannel = supabaseClient.channel('realtime:public:messages');
-
-    messagesChannel
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages'
-        },
-        payload => {
-          console.log("New message received:", payload.new);
-          const { username: sender, content, inserted_at } = payload.new;
-          const time = new Date(inserted_at).toLocaleTimeString();
-          appendMessage(`<strong>${sender}</strong>: ${content}`, time);
+      nicknameInput.addEventListener('input', () => {
+        const newName = nicknameInput.value.trim();
+        if (newName.length > 0) {
+          username = newName;
+          if (presenceChannel) {
+            presenceChannel.track({ username }).catch(console.error);
+            console.log("Username changed to:", username);
+          }
         }
-      )
-      .subscribe((status) => {
-        console.log('Message channel subscription status:', status);
       });
 
-    send.onclick = async () => {
-      const message = input.value.trim();
-      if (!message) {
-        console.log("Empty message, ignoring send");
-        return;
-      }
-      console.log("Sending message:", message);
-      const { error } = await supabaseClient.from('messages').insert([{ username, content: message }]);
-      if (error) {
-        console.error("Error sending message:", error);
-      } else {
-        console.log("Message sent successfully");
-        // We no longer append immediately; we wait for the server push
-        input.value = '';
-      }
-    };
+      presenceChannel = await supabaseClient.channel('presence:messages', {
+        config: { presence: { key: username } }
+      });
 
-    input.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        send.click();
-      }
-    });
+      presenceChannel.on('presence', { event: 'sync' }, () => {
+        console.log("Presence sync event triggered");
+        updateOnlineUsers(presenceChannel.presence);
+      });
 
-    console.log("Script finished setup");
+      await presenceChannel.subscribe();
+
+      presenceChannel.track({ username }).catch(console.error);
+      console.log("Presence tracking started for username:", username);
+
+      function appendMessage(text, time = '') {
+        const p = document.createElement('p');
+        p.innerHTML = time ? `<strong>[${time}]</strong> ${text}` : text;
+        chat.appendChild(p);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      async function loadMessages() {
+        console.log("Loading existing messages...");
+        const { data, error } = await supabaseClient
+          .from('messages')
+          .select('*')
+          .order('inserted_at', { ascending: true })
+          .limit(100);
+        if (error) {
+          console.error('Error loading messages:', error);
+          return;
+        }
+        console.log("Loaded messages:", data.length);
+        data.forEach(msg => {
+          const time = new Date(msg.inserted_at).toLocaleTimeString();
+          appendMessage(`${msg.username}: ${msg.content}`, time);
+        });
+      }
+
+      loadMessages();
+
+      const messagesChannel = supabaseClient.channel('realtime:public:messages');
+
+      messagesChannel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          payload => {
+            console.log("New message received:", payload.new);
+            const { username: sender, content, inserted_at } = payload.new;
+            const time = new Date(inserted_at).toLocaleTimeString();
+            appendMessage(`<strong>${sender}</strong>: ${content}`, time);
+          }
+        )
+        .subscribe((status) => {
+          console.log('Message channel subscription status:', status);
+        });
+
+      send.onclick = async () => {
+        const message = input.value.trim();
+        if (!message) {
+          console.log("Empty message, ignoring send");
+          return;
+        }
+        console.log("Sending message:", message);
+        const { error } = await supabaseClient.from('messages').insert([{ username, content: message }]);
+        if (error) {
+          console.error("Error sending message:", error);
+        } else {
+          console.log("Message sent successfully");
+          // We no longer append immediately; we wait for the server push
+          input.value = '';
+        }
+      };
+
+      input.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          send.click();
+        }
+      });
+
+      console.log("Script finished setup");
+    }
+
+    init();
   </script>
 </body>
 </html>
