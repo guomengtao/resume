@@ -65,7 +65,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.3</h1>
+    <h1>Chatroom Demo v1.4</h1>
     <label for="nickname">昵称:</label>
     <input type="text" id="nickname" placeholder="输入昵称" />
     <div id="online-users">在线用户 (0):</div>
@@ -112,15 +112,23 @@
       console.log("Updating online users presence:", presence);
       const users = presence.state;
 
+      // Filter valid users with metadata and username
       const userEntries = Object.entries(users).filter(([key, user]) => user.metadata && user.metadata.username);
       const names = userEntries.map(([key, user]) => user.metadata.username);
 
-      onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
+      // Show at least 1 user if no others online (self)
+      const displayCount = names.length > 0 ? names.length : 1;
+      onlineUsersDiv.textContent = `在线用户 (${displayCount}): ${names.length > 0 ? names.join(', ') : username}`;
 
-      if(userEntries.length === 0) {
+      if (userEntries.length === 0) {
         userListDiv.textContent = '无在线用户';
+        // But still show current user
+        const p = document.createElement('p');
+        p.textContent = `${username} (加入时间: 现在)`;
+        userListDiv.appendChild(p);
         return;
       }
+
       userListDiv.innerHTML = '';
       userEntries.forEach(([key, user]) => {
         const p = document.createElement('p');
@@ -149,10 +157,8 @@
       updateOnlineUsers(presenceChannel.presence);
     });
 
-    // subscribe returns subscription object, no then()
     presenceChannel.subscribe();
 
-    // Immediately track presence after subscribing
     presenceChannel.track({ username }).catch(console.error);
     console.log("Presence tracking started for username:", username);
 
