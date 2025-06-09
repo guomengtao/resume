@@ -65,7 +65,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.2.2</h1>
+    <h1>Chatroom Demo v1.3</h1>
     <label for="nickname">昵称:</label>
     <input type="text" id="nickname" placeholder="输入昵称" />
     <div id="online-users">在线用户 (0):</div>
@@ -91,7 +91,7 @@
     const userListDiv = document.getElementById('user-list');
 
     const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
-    const supabaseKey = '你的SupabaseKey这里';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
 
     console.log("Creating Supabase client...");
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
@@ -149,12 +149,12 @@
       updateOnlineUsers(presenceChannel.presence);
     });
 
-    presenceChannel.subscribe()
-      .then(() => {
-        presenceChannel.track({ username });
-        console.log("Presence tracking started for username:", username);
-      })
-      .catch(console.error);
+    // subscribe returns subscription object, no then()
+    presenceChannel.subscribe();
+
+    // Immediately track presence after subscribing
+    presenceChannel.track({ username }).catch(console.error);
+    console.log("Presence tracking started for username:", username);
 
     function appendMessage(text, time = '') {
       const p = document.createElement('p');
@@ -192,11 +192,7 @@
       appendMessage(`${username}: ${content}`, time);
     });
 
-    messagesChannel.subscribe()
-      .then(() => {
-        console.log("Subscribed to new messages channel");
-      })
-      .catch(console.error);
+    messagesChannel.subscribe();
 
     send.onclick = async () => {
       const message = input.value.trim();
