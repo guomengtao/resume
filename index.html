@@ -229,11 +229,16 @@
             const time = new Date(inserted_at).toLocaleTimeString();
             console.log("Realtime message received:", sender, content);
             appendMessage(`<strong>${sender}</strong>: ${content}`, time);
+            console.log("Message displayed in chat box");
           }
         );
 
-      const subscriptionStatus = await messagesChannel.subscribe();
-      console.log('Message channel subscription status:', subscriptionStatus);
+      const { error: subError } = await messagesChannel.subscribe();
+      if (subError) {
+        console.error('Failed to subscribe to message channel:', subError);
+      } else {
+        console.log('Successfully subscribed to message channel');
+      }
 
       send.onclick = async () => {
         const message = input.value.trim();
