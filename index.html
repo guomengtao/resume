@@ -1,142 +1,178 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Chatroom Demo</title>
-    <style>
-      #version-banner {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        background-color: #d9534f; /* bootstrap 红 */
-        color: white;
-        font-weight: bold;
-        padding: 5px 10px;
-        text-align: center;
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-      }
-      body {
-        padding-top: 30px; /* 避免内容被横幅遮挡 */
-      }
-    </style>
-  </head>
-  <body>
-    <div id="version-banner">Chatroom Demo - Version 1.0.1 (2025-06-09)</div>
-
-    <h1>Chatroom Demo</h1>
-    <div id="chat" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;"></div>
-    <input id="input" type="text" placeholder="Type a message..." style="width: 70%;" />
-    <button id="send">Send</button>
-    <hr>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  console.log("Script started");
-
-  const chat = document.getElementById('chat');
-  const input = document.getElementById('input');
-  const send = document.getElementById('send');
-
-  const onlineUsersDiv = document.createElement('div');
-  onlineUsersDiv.style.marginBottom = '10px';
-  document.body.insertBefore(onlineUsersDiv, chat);
-
-  const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
-
-  console.log("Creating Supabase client...");
-  const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
-  let username = 'User' + Math.floor(Math.random() * 1000);
-  console.log("Generated username:", username);
-
-  function updateOnlineUsers(presence) {
-    console.log("Updating online users presence:", presence);
-    const users = presence.state;
-    const names = Object.values(users).map(u => u.metadata.username);
-    onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
-  }
-
-  // 创建 presence channel
-  const presenceChannel = supabaseClient.channel('presence:messages', {
-    config: { presence: { key: username } }
-  });
-
-  presenceChannel.on('presence', { event: 'sync' }, () => {
-    console.log("Presence sync event triggered");
-    updateOnlineUsers(presenceChannel.presence);
-  });
-
-  presenceChannel.subscribe();
-
-  presenceChannel.track({ username });
-  console.log("Presence tracking started for username:", username);
-
-  function appendMessage(text, time = '') {
-    const p = document.createElement('p');
-    p.textContent = time ? `[${time}] ${text}` : text;
-    chat.appendChild(p);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  async function loadMessages() {
-    console.log("Loading existing messages...");
-    const { data, error } = await supabaseClient
-      .from('messages')
-      .select('*')
-      .order('inserted_at', { ascending: true })
-      .limit(100);
-    if (error) {
-      console.error('Error loading messages:', error);
-      return;
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chatroom Demo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-    console.log("Loaded messages:", data.length);
-    data.forEach(msg => {
-      const time = new Date(msg.inserted_at).toLocaleTimeString();
-      appendMessage(`${msg.username}: ${msg.content}`, time);
+    #chat {
+      border: 1px solid #ccc;
+      height: 300px;
+      overflow-y: scroll;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f9f9f9;
+    }
+    #online-users {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    #nickname {
+      width: 200px;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+    #input {
+      width: 70%;
+      padding: 5px;
+    }
+    #send {
+      padding: 6px 12px;
+      margin-left: 5px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Chatroom Demo v1.1.2</h1>
+  <label for="nickname">昵称:</label>
+  <input type="text" id="nickname" placeholder="输入昵称" />
+  <div id="online-users">在线用户 (0):</div>
+  <div id="chat"></div>
+  <input type="text" id="input" placeholder="输入消息" />
+  <button id="send">发送</button>
+
+  <script>
+    console.log("Script started");
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const send = document.getElementById('send');
+    const nicknameInput = document.getElementById('nickname');
+    const onlineUsersDiv = document.getElementById('online-users');
+
+    const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+
+    console.log("Creating Supabase client...");
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+    const randomNicknames = [
+      'Eagle', 'Tiger', 'Lion', 'Falcon', 'Wolf',
+      'Hawk', 'Panther', 'Bear', 'Fox', 'Dragon',
+      'Shark', 'Phoenix', 'Leopard', 'Cheetah', 'Jaguar'
+    ];
+
+    // 初始化昵称
+    let username = randomNicknames[Math.floor(Math.random() * randomNicknames.length)] + Math.floor(Math.random() * 1000);
+    nicknameInput.value = username;
+    console.log("Generated username:", username);
+
+    let presenceChannel;
+
+    nicknameInput.addEventListener('input', () => {
+      const newName = nicknameInput.value.trim();
+      if (newName.length > 0) {
+        username = newName;
+        if (presenceChannel) {
+          presenceChannel.track({ username }).catch(console.error);
+        }
+        console.log("Username changed to:", username);
+      }
     });
-  }
 
-  loadMessages();
+    function updateOnlineUsers(presence) {
+      console.log("Updating online users presence:", presence);
+      const users = presence.state;
+      // 过滤掉没有metadata或username的用户，避免报错
+      const names = Object.values(users)
+        .filter(u => u.metadata && u.metadata.username)
+        .map(u => u.metadata.username);
 
-  // 新消息订阅
-  const messagesChannel = supabaseClient.channel('public:messages');
-
-  messagesChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-    console.log("New message received:", payload.new);
-    const { username, content, inserted_at } = payload.new;
-    const time = new Date(inserted_at).toLocaleTimeString();
-    appendMessage(`${username}: ${content}`, time);
-  });
-
-  messagesChannel.subscribe();
-  console.log("Subscribed to new messages channel");
-
-  send.onclick = async () => {
-    const message = input.value.trim();
-    if (!message) {
-      console.log("Empty message, ignoring send");
-      return;
+      onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
     }
-    console.log("Sending message:", message);
-    const { error } = await supabaseClient.from('messages').insert([{ username, content: message }]);
-    if (error) {
-      console.error("Error sending message:", error);
-    } else {
-      console.log("Message sent successfully");
-      input.value = '';
-    }
-  };
 
-  input.addEventListener('keypress', (event) => {
-    if (event.key === 'Enter') {
-      send.click();
-    }
-  });
+    presenceChannel = supabaseClient.channel('presence:messages', {
+      config: { presence: { key: username } }
+    });
 
-  console.log("Script finished setup");
-</script>
-  </body>
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+      console.log("Presence sync event triggered");
+      updateOnlineUsers(presenceChannel.presence);
+    });
+
+    presenceChannel.subscribe().then(() => {
+      presenceChannel.track({ username });
+      console.log("Presence tracking started for username:", username);
+    }).catch(console.error);
+
+    function appendMessage(text, time = '') {
+      const p = document.createElement('p');
+      p.textContent = time ? `[${time}] ${text}` : text;
+      chat.appendChild(p);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function loadMessages() {
+      console.log("Loading existing messages...");
+      const { data, error } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .order('inserted_at', { ascending: true })
+        .limit(100);
+      if (error) {
+        console.error('Error loading messages:', error);
+        return;
+      }
+      console.log("Loaded messages:", data.length);
+      data.forEach(msg => {
+        const time = new Date(msg.inserted_at).toLocaleTimeString();
+        appendMessage(`${msg.username}: ${msg.content}`, time);
+      });
+    }
+
+    loadMessages();
+
+    const messagesChannel = supabaseClient.channel('public:messages');
+
+    messagesChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+      console.log("New message received:", payload.new);
+      const { username, content, inserted_at } = payload.new;
+      const time = new Date(inserted_at).toLocaleTimeString();
+      appendMessage(`${username}: ${content}`, time);
+    });
+
+    messagesChannel.subscribe().then(() => {
+      console.log("Subscribed to new messages channel");
+    }).catch(console.error);
+
+    send.onclick = async () => {
+      const message = input.value.trim();
+      if (!message) {
+        console.log("Empty message, ignoring send");
+        return;
+      }
+      console.log("Sending message:", message);
+      const { error } = await supabaseClient.from('messages').insert([{ username, content: message }]);
+      if (error) {
+        console.error("Error sending message:", error);
+      } else {
+        console.log("Message sent successfully");
+        input.value = '';
+      }
+    };
+
+    input.addEventListener('keypress', (event) => {
+      if (event.key === 'Enter') {
+        send.click();
+      }
+    });
+
+    console.log("Script finished setup");
+  </script>
+</body>
 </html>
