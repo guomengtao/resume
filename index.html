@@ -230,12 +230,10 @@
             console.log("Realtime message received:", sender, content);
             appendMessage(`<strong>${sender}</strong>: ${content}`, time);
           }
-        )
-        .subscribe()
-        .then((status) => {
-          console.log('Message channel subscription status:', status);
-        });
-      console.log("Subscribed to messagesChannel:", messagesChannel);
+        );
+
+      const subscriptionStatus = await messagesChannel.subscribe();
+      console.log('Message channel subscription status:', subscriptionStatus);
 
       send.onclick = async () => {
         const message = input.value.trim();
