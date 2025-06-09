@@ -83,7 +83,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.6.3</h1>
+    <h1>Chatroom Demo v1.6.4</h1>
     <div id="online-users">在线用户 (0):</div>
     <div id="chat"></div>
     <div>
@@ -227,11 +227,18 @@
           payload => {
             const { username: sender, content, inserted_at } = payload.new;
             const time = new Date(inserted_at).toLocaleTimeString();
-            console.log("Realtime message received:", sender, content);
-            appendMessage(`<strong>${sender}</strong>: ${content}`, time);
-            console.log("Message displayed in chat box");
+            console.log("Realtime message received:", sender, content, inserted_at);
+            if (sender && content) {
+              appendMessage(`<strong>${sender}</strong>: ${content}`, time);
+              console.log("Message displayed in chat box");
+            } else {
+              console.warn("Message data incomplete:", payload.new);
+            }
           }
-        );
+        )
+        .subscribe((status) => {
+          console.log('Message channel subscription status:', status);
+        });
 
       const { error: subError } = await messagesChannel.subscribe();
       if (subError) {
