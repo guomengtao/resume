@@ -8,6 +8,14 @@
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     #chat {
       border: 1px solid #ccc;
@@ -16,6 +24,7 @@
       padding: 10px;
       margin-bottom: 10px;
       background-color: #f9f9f9;
+      flex-grow: 1;
     }
     #online-users {
       margin-bottom: 10px;
@@ -34,17 +43,42 @@
       padding: 6px 12px;
       margin-left: 5px;
     }
+    #sidebar {
+      width: 200px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #f3f3f3;
+      height: 300px;
+      overflow-y: auto;
+    }
+    #sidebar h2 {
+      margin-top: 0;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    #user-list p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <h1>Chatroom Demo v1.1.2</h1>
-  <label for="nickname">昵称:</label>
-  <input type="text" id="nickname" placeholder="输入昵称" />
-  <div id="online-users">在线用户 (0):</div>
-  <div id="chat"></div>
-  <input type="text" id="input" placeholder="输入消息" />
-  <button id="send">发送</button>
+  <div id="main">
+    <h1>Chatroom Demo v1.2.2</h1>
+    <label for="nickname">昵称:</label>
+    <input type="text" id="nickname" placeholder="输入昵称" />
+    <div id="online-users">在线用户 (0):</div>
+    <div id="chat"></div>
+    <div>
+      <input type="text" id="input" placeholder="输入消息" />
+      <button id="send">发送</button>
+    </div>
+  </div>
+  <div id="sidebar">
+    <h2>用户列表</h2>
+    <div id="user-list">加载中...</div>
+  </div>
 
   <script>
     console.log("Script started");
@@ -54,9 +88,10 @@
     const send = document.getElementById('send');
     const nicknameInput = document.getElementById('nickname');
     const onlineUsersDiv = document.getElementById('online-users');
+    const userListDiv = document.getElementById('user-list');
 
     const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+    const supabaseKey = '你的SupabaseKey这里';
 
     console.log("Creating Supabase client...");
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
@@ -67,12 +102,32 @@
       'Shark', 'Phoenix', 'Leopard', 'Cheetah', 'Jaguar'
     ];
 
-    // 初始化昵称
     let username = randomNicknames[Math.floor(Math.random() * randomNicknames.length)] + Math.floor(Math.random() * 1000);
     nicknameInput.value = username;
     console.log("Generated username:", username);
 
     let presenceChannel;
+
+    function updateOnlineUsers(presence) {
+      console.log("Updating online users presence:", presence);
+      const users = presence.state;
+
+      const userEntries = Object.entries(users).filter(([key, user]) => user.metadata && user.metadata.username);
+      const names = userEntries.map(([key, user]) => user.metadata.username);
+
+      onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
+
+      if(userEntries.length === 0) {
+        userListDiv.textContent = '无在线用户';
+        return;
+      }
+      userListDiv.innerHTML = '';
+      userEntries.forEach(([key, user]) => {
+        const p = document.createElement('p');
+        p.textContent = `${user.metadata.username} (加入时间: ${new Date(user.joined_at).toLocaleTimeString()})`;
+        userListDiv.appendChild(p);
+      });
+    }
 
     nicknameInput.addEventListener('input', () => {
       const newName = nicknameInput.value.trim();
@@ -80,21 +135,10 @@
         username = newName;
         if (presenceChannel) {
           presenceChannel.track({ username }).catch(console.error);
+          console.log("Username changed to:", username);
         }
-        console.log("Username changed to:", username);
       }
     });
-
-    function updateOnlineUsers(presence) {
-      console.log("Updating online users presence:", presence);
-      const users = presence.state;
-      // 过滤掉没有metadata或username的用户，避免报错
-      const names = Object.values(users)
-        .filter(u => u.metadata && u.metadata.username)
-        .map(u => u.metadata.username);
-
-      onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
-    }
 
     presenceChannel = supabaseClient.channel('presence:messages', {
       config: { presence: { key: username } }
@@ -105,10 +149,12 @@
       updateOnlineUsers(presenceChannel.presence);
     });
 
-    presenceChannel.subscribe().then(() => {
-      presenceChannel.track({ username });
-      console.log("Presence tracking started for username:", username);
-    }).catch(console.error);
+    presenceChannel.subscribe()
+      .then(() => {
+        presenceChannel.track({ username });
+        console.log("Presence tracking started for username:", username);
+      })
+      .catch(console.error);
 
     function appendMessage(text, time = '') {
       const p = document.createElement('p');
@@ -146,9 +192,11 @@
       appendMessage(`${username}: ${content}`, time);
     });
 
-    messagesChannel.subscribe().then(() => {
-      console.log("Subscribed to new messages channel");
-    }).catch(console.error);
+    messagesChannel.subscribe()
+      .then(() => {
+        console.log("Subscribed to new messages channel");
+      })
+      .catch(console.error);
 
     send.onclick = async () => {
       const message = input.value.trim();
