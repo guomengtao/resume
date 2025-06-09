@@ -1,0 +1,36 @@
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    # 每10分钟运行一次
+    - cron: "*/10 * * * *"
+
+jobs:
+  keep-wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+
+    steps:
+      - name: Curl keepalive ping
+        run: curl --max-time 10 https://666.rinuo.com || echo "Ping failed"
+
+      - name: Conditionally send daily message
+        run: |
+          # 获取今天的日期
+          TODAY=$(date +"%Y-%m-%d")
+          # 用 SHA 随机生成一个小时（0~23）
+          RANDOM_HOUR=$(echo -n "$TODAY" | sha1sum | awk '{print $1}' | cut -c1-2 | xargs printf "%d" 0x)
+          SELECTED_HOUR=$((RANDOM_HOUR % 24))
+          CURRENT_HOUR=$(date +"%H")
+
+          echo "Target hour: $SELECTED_HOUR, Now: $CURRENT_HOUR"
+
+          if [ "$CURRENT_HOUR" -eq "$SELECTED_HOUR" ]; then
+            MESSAGE="Today is $TODAY. Sent from GitHub Actions at $(date +'%H:%M:%S')"
+            curl --max-time 15 -X POST https://666.rinuo.com/send \
+              -H "Content-Type: application/json" \
+              -d "{\"username\": \"bot-github\", \"content\": \"$MESSAGE\"}"
+            echo "Message sent: $MESSAGE"
+          else
+            echo "Skipping message. Not in target hour."
+          fi
