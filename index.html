@@ -1,3 +1,9 @@
+<h1>Chatroom Demo</h1>
+<div id="chat" style="height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;"></div>
+<input id="input" type="text" placeholder="Type a message..." style="width: 70%;" />
+<button id="send">Send</button>
+<hr>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const chat = document.getElementById('chat');
   const input = document.getElementById('input');
@@ -11,27 +17,28 @@
   const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
   const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  // Generate a random nickname
   let username = 'User' + Math.floor(Math.random() * 1000);
 
-  // Display online users and their nicknames
   function updateOnlineUsers(presence) {
     const users = presence.state;
     const names = Object.values(users).map(u => u.metadata.username);
     onlineUsersDiv.textContent = `在线用户 (${names.length}): ${names.join(', ')}`;
   }
 
-  // Subscribe to presence to track online users
-  const presenceChannel = supabase.channel('presence:messages')
+  const presenceChannel = supabase.channel('presence:messages', {
+    config: {
+      presence: {
+        key: username
+      }
+    }
+  })
     .on('presence', { event: 'sync' }, () => {
       updateOnlineUsers(presenceChannel.presence);
     })
     .subscribe();
 
-  // Join presence with username metadata
   presenceChannel.track({ username });
 
-  // Append message to chat UI
   function appendMessage(text, time = '') {
     const p = document.createElement('p');
     p.textContent = time ? `[${time}] ${text}` : text;
@@ -39,7 +46,6 @@
     chat.scrollTop = chat.scrollHeight;
   }
 
-  // Load existing messages on page load
   async function loadMessages() {
     const { data, error } = await supabase
       .from('messages')
@@ -58,7 +64,6 @@
 
   loadMessages();
 
-  // Listen for new messages and append them
   supabase
     .channel('public:messages')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
@@ -68,7 +73,6 @@
     })
     .subscribe();
 
-  // Send message
   send.onclick = async () => {
     const message = input.value.trim();
     if (!message) return;
@@ -76,7 +80,6 @@
     input.value = '';
   };
 
-  // Send message on Enter key
   input.addEventListener('keypress', (event) => {
     if (event.key === 'Enter') {
       send.click();
