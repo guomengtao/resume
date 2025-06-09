@@ -25,6 +25,8 @@
       margin-bottom: 10px;
       background-color: #f9f9f9;
       flex-grow: 1;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     #online-users {
       margin-bottom: 10px;
@@ -32,16 +34,32 @@
     }
     #nickname {
       width: 200px;
-      padding: 5px;
-      margin-bottom: 10px;
+      padding: 8px 10px;
+      margin-top: 10px;
+      border: 1px solid #888;
+      border-radius: 4px;
+      font-size: 14px;
     }
     #input {
       width: 70%;
-      padding: 5px;
+      padding: 8px 10px;
+      border: 1px solid #888;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-right: 5px;
     }
     #send {
-      padding: 6px 12px;
-      margin-left: 5px;
+      padding: 8px 16px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #send:hover {
+      background-color: #45a049;
     }
     #sidebar {
       width: 200px;
@@ -65,15 +83,15 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo v1.4</h1>
-    <label for="nickname">昵称:</label>
-    <input type="text" id="nickname" placeholder="输入昵称" />
+    <h1>Chatroom Demo v1.5</h1>
     <div id="online-users">在线用户 (0):</div>
     <div id="chat"></div>
     <div>
       <input type="text" id="input" placeholder="输入消息" />
       <button id="send">发送</button>
     </div>
+    <label for="nickname">昵称:</label><br/>
+    <input type="text" id="nickname" placeholder="输入昵称" />
   </div>
   <div id="sidebar">
     <h2>用户列表</h2>
@@ -212,6 +230,8 @@
         console.error("Error sending message:", error);
       } else {
         console.log("Message sent successfully");
+        const now = new Date().toLocaleTimeString();
+        appendMessage(`${username}: ${message}`, now);
         input.value = '';
       }
     };
