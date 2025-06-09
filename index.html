@@ -140,18 +140,18 @@
 <body>
   <div id="main">
     <h1>Chatroom Demo v1.6.4</h1>
-    <div id="online-users">在线用户 (0):</div>
+    <div id="online-users">Online users (0):</div>
     <div id="chat"></div>
     <div id="input-row">
-      <label for="nickname" id="nickname-label">昵称:</label>
-      <input type="text" id="nickname" placeholder="输入昵称" />
-      <input type="text" id="input" placeholder="输入消息" />
-      <button id="send">发送</button>
+      <label for="nickname" id="nickname-label">Nickname:</label>
+      <input type="text" id="nickname" placeholder="Enter nickname" />
+      <input type="text" id="input" placeholder="Enter message" />
+      <button id="send">Send</button>
     </div>
   </div>
   <div id="sidebar">
-    <h2>用户列表</h2>
-    <div id="user-list">加载中...</div>
+    <h2>User List</h2>
+    <div id="user-list">Loading...</div>
   </div>
 
   <script>
@@ -190,7 +190,7 @@
 
         if (!presence || !presence.state || Object.keys(presence.state).length === 0) {
           console.log("Presence or presence.state is empty or undefined");
-          onlineUsersDiv.textContent = `在线用户 (1): ${username}`;
+          onlineUsersDiv.textContent = `Online users (1): ${username}`;
           userListDiv.innerHTML = "";
           const p = document.createElement("p");
           p.textContent = username;
@@ -230,7 +230,7 @@
 
         const userCount = uniqueUsernames.size;
 
-        onlineUsersDiv.textContent = `在线用户 (${userCount}): ${[...uniqueUsernames].join(', ')}`;
+        onlineUsersDiv.textContent = `Online users (${userCount}): ${[...uniqueUsernames].join(', ')}`;
 
         userListDiv.innerHTML = "";
         uniqueUsernames.forEach(name => {
@@ -279,20 +279,20 @@
       await presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey });
       console.log("Presence tracking started for username:", username, "with key:", presenceKey);
 
-      // 友好时间格式函数
+      // Friendly time format function
       function formatTime(date) {
         const now = new Date();
         const diffMs = now - date;
         const diffSec = Math.floor(diffMs / 1000);
-        if (diffSec < 60) return '刚刚';
+        if (diffSec < 60) return 'Just now';
         const diffMin = Math.floor(diffSec / 60);
-        if (diffMin < 60) return `${diffMin}分钟前`;
+        if (diffMin < 60) return `${diffMin} minutes ago`;
         const diffHour = Math.floor(diffMin / 60);
-        if (diffHour < 24) return `${diffHour}小时前`;
+        if (diffHour < 24) return `${diffHour} hours ago`;
         return date.toLocaleDateString();
       }
 
-      // 哈希字符串生成颜色函数
+      // Hash string to color function
       function getUsernameColor(name) {
         let hash = 0;
         for (let i = 0; i < name.length; i++) {
@@ -306,7 +306,7 @@
         return colors[Math.abs(hash) % colors.length];
       }
 
-      // 显示消息时调用 formatTime 和 getUsernameColor
+      // Display message with formatTime and getUsernameColor
       function appendMessage(text, time = '', username = '') {
         const p = document.createElement('p');
         const timeStr = time ? `<strong>[${formatTime(new Date(time))}]</strong> ` : '';
@@ -348,7 +348,7 @@
           payload => {
             const { username, content, inserted_at } = payload.new;
             console.log("Realtime message received:", username, content, inserted_at);
-            appendMessage(`${username || "Unknown"}: ${content || "(无内容)"}`, inserted_at, username);
+            appendMessage(`${username || "Unknown"}: ${content || "(no content)"}`, inserted_at, username);
           }
         )
         .subscribe((status) => {
@@ -372,7 +372,7 @@
         } else {
           console.log("Message sent successfully, waiting for realtime update...");
           input.value = '';
-          // 发送后按钮禁用
+          // Disable send button after sending
           send.disabled = true;
         }
       };
@@ -383,12 +383,12 @@
         }
       });
 
-      // 监听输入，控制发送按钮禁用
+      // Listen input to control send button disabled state
       input.addEventListener('input', () => {
         send.disabled = input.value.trim().length === 0;
       });
 
-      // 初始化禁用发送按钮
+      // Initialize send button disabled
       send.disabled = true;
 
       console.log("Script finished setup");
