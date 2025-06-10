@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chatroom Demo v1.6.4</title>
+  <title>Chatroom Demo v1.6.6</title>
   <style>
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -242,7 +242,7 @@
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo Jack And Tom!v1.6.5</h1>
+    <h1>Chatroom Demo Jack And Tom!v1.6.6</h1>
     <div id="online-users">Online users (0):</div>
     <div id="chat"></div>
     <div id="input-row">
@@ -471,6 +471,7 @@
       });
 
       await presenceChannel.subscribe();
+      console.log('✅ Subscribed to broadcast channel');
 
       await presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey });
 
@@ -554,13 +555,83 @@
       let otherUserName = null;
       let isVideoSender = false;
 
+      // 判断自己是否为 initiator: 基于昵称字典序
+      function determineInitiatorByName(presenceState, myName) {
+        const usernames = [];
+
+        Object.values(presenceState || {}).forEach(userArray => {
+          userArray.forEach(meta => {
+            if (meta && meta.username) {
+              usernames.push(meta.username);
+            }
+          });
+        });
+
+        usernames.sort();
+
+        return usernames.length > 0 && myName === usernames[0];
+      }
+
+      // --- WebRTC handshake/初始化逻辑 ---
+      // 全局 handshake 状态
+      let hasReceivedHello = false;
+      let hasSentHello = false;
+
+      // tryCreatePeer 只允许 Tom 和 Jack 建立视频连接
+      function tryCreatePeer() {
+        if (peer || !hasReceivedHello || !hasSentHello) return;
+
+        // 限定只有 Tom 和 Jack 可以建立视频连接
+        if (username !== 'Tom' && username !== 'Jack') {
+          console.warn('⚠️ 当前用户不是 Tom 或 Jack，跳过视频连接');
+          return;
+        }
+
+        const initiatorFlag = username === 'Tom';
+        console.log('🧭 I am', username, ', initiator:', initiatorFlag);
+
+        peer = new SimplePeer({
+          initiator: initiatorFlag,
+          trickle: false,
+          stream: isVideoSender ? localStream : undefined,
+        });
+
+        let offerSent = null;
+        peer.on('signal', signalData => {
+          const type = signalData?.type || (signalData?.candidate ? 'candidate' : 'unknown');
+          console.log(`📡 Sending signal: type=${type}, to "${otherUserName || 'unknown'}"`, signalData);
+
+          if (type === 'offer') {
+            offerSent = signalData;
+            setTimeout(() => {
+              if (!remoteVideo.srcObject) {
+                console.log('🔁 Retrying signal: re-sending offer...');
+                broadcastChannel.send({ type: 'signal', username, data: offerSent });
+              }
+            }, 3000);
+          }
+
+          broadcastChannel.send({ type: 'signal', username, data: signalData });
+        });
+
+        peer.on('stream', stream => {
+          console.log('🎥 Received remote stream from', otherUserName || 'unknown');
+          remoteVideo.srcObject = stream;
+        });
+
+        peer.on('error', err => {
+          console.error('WebRTC error:', err);
+        });
+      }
+
       async function setupMediaAndConnection() {
         try {
           localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideo.srcObject = localStream;
           isVideoSender = true;
+          console.log('📷 Got local video stream');
         } catch (err) {
-          console.warn('❌ 没有摄像头权限，作为观看者加入视频');
+          console.warn('❌ Failed to get video: viewing only mode');
           localVideo.style.display = 'none';
           const tip = document.createElement('div');
           tip.style.color = '#f44336';
@@ -569,64 +640,66 @@
           localVideo.parentNode.insertBefore(tip, localVideo.nextSibling);
         }
 
-        await broadcastChannel.subscribe();
+        if (username !== 'Tom' && username !== 'Jack') {
+          console.warn('❌ 当前用户不是 Tom 或 Jack，不参与视频连接');
+          return;
+        }
+
+        // Debug event listener
+        broadcastChannel.on('broadcast', { event: 'debug' }, ({ payload }) => {
+          console.log(`🐞 DEBUG received from ${payload.username}:`, payload);
+        });
 
         broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
           const { username: sender, data } = payload;
+          const signalType = data?.type || (data?.candidate ? 'candidate' : 'unknown');
+          console.log(`📨 Received signal from "${sender}" (type=${signalType})`, data);
           if (sender === username) return;
-
-          if (otherUserName && otherUserName !== sender) {
-            console.warn('👥 第三人尝试加入视频，已忽略:', sender);
-            return;
-          }
-
-          otherUserName = sender;
-
-          if (!peer) {
-            const initiatorFlag = username < sender;
-            peer = new SimplePeer({
-              initiator: initiatorFlag,
-              trickle: false,
-              stream: isVideoSender ? localStream : undefined,
-            });
-
-            peer.on('signal', signalData => {
-              broadcastChannel.send({ type: 'signal', username, data: signalData });
-            });
-
-            peer.on('stream', stream => {
-              remoteVideo.srcObject = stream;
-            });
-
-            peer.on('error', err => {
-              console.error('WebRTC error:', err);
-            });
-          }
 
           peer.signal(data);
         });
 
-        setTimeout(() => {
-          if (!peer) {
-            peer = new SimplePeer({
-              initiator: true,
-              trickle: false,
-              stream: isVideoSender ? localStream : undefined,
-            });
+        await broadcastChannel.subscribe();
+        console.log('✅ Subscribed to broadcast channel');
 
-            peer.on('signal', signalData => {
-              broadcastChannel.send({ type: 'signal', username, data: signalData });
-            });
+        // Send test debug broadcast
+        broadcastChannel.send({ type: 'debug', username, content: 'hello from ' + username });
 
-            peer.on('stream', stream => {
-              remoteVideo.srcObject = stream;
-            });
+        const initiatorFlag = username === 'Tom';
+        console.log('🧭 I am', username, ', initiator:', initiatorFlag);
 
-            peer.on('error', err => {
-              console.error('WebRTC error:', err);
-            });
+        peer = new SimplePeer({
+          initiator: initiatorFlag,
+          trickle: false,
+          stream: isVideoSender ? localStream : undefined,
+        });
+
+        let offerSent = null;
+        peer.on('signal', signalData => {
+          const type = signalData?.type || (signalData?.candidate ? 'candidate' : 'unknown');
+          console.log(`📡 Sending signal: type=${type}`, signalData);
+
+          if (type === 'offer') {
+            offerSent = signalData;
+            setTimeout(() => {
+              if (!remoteVideo.srcObject) {
+                console.log('🔁 Retrying signal: re-sending offer...');
+                broadcastChannel.send({ type: 'signal', username, data: offerSent });
+              }
+            }, 3000);
           }
-        }, 1000);
+
+          broadcastChannel.send({ type: 'signal', username, data: signalData });
+        });
+
+        peer.on('stream', stream => {
+          console.log('🎥 Received remote stream');
+          remoteVideo.srcObject = stream;
+        });
+
+        peer.on('error', err => {
+          console.error('WebRTC error:', err);
+        });
       }
 
       await setupMediaAndConnection();
