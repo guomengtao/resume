@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chatroom Demo v1.6.4</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      background-color: #f5f5f0;
+      color: #333;
+    }
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 700px;
+    }
+    #input-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    #nickname-label {
+      font-weight: 600;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+    #nickname {
+      width: 140px;
+      padding: 9px 12px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      font-size: 15px;
+      outline-offset: 2px;
+      transition: border-color 0.3s ease;
+      height: 36px;
+      box-sizing: border-box;
+    }
+    #nickname:focus {
+      border-color: #4caf50;
+      box-shadow: 0 0 6px #a4d4a4;
+    }
+    #input {
+      flex-grow: 1;
+      padding: 10px 14px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      font-size: 15px;
+      outline-offset: 2px;
+      transition: border-color 0.3s ease;
+      height: 36px;
+      box-sizing: border-box;
+    }
+    #input:focus {
+      border-color: #4caf50;
+      box-shadow: 0 0 6px #a4d4a4;
+    }
+    #send {
+      padding: 10px 18px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.25s ease;
+      height: 36px;
+      width: 90px;
+      flex-shrink: 0;
+    }
+    #send:hover,
+    #send:focus {
+      background-color: #43a047;
+      outline: none;
+    }
+    #chat {
+      border: 1px solid #ddd;
+      height: 320px;
+      overflow-y: auto;
+      padding: 12px 15px;
+      margin-bottom: 12px;
+      background-color: #f5f5f0;
+      flex-grow: 1;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #online-users {
+      margin-bottom: 12px;
+      font-weight: 600;
+      font-size: 16px;
+      color: #555;
+    }
+    #sidebar {
+      width: 220px;
+      border: 1px solid #ddd;
+      padding: 12px 15px;
+      background: #fefefe;
+      height: 320px;
+      overflow-y: auto;
+      border-radius: 6px;
+      box-shadow: 0 1px 6px rgb(0 0 0 / 0.08);
+    }
+    #sidebar h2 {
+      margin-top: 0;
+      font-size: 20px;
+      margin-bottom: 14px;
+      color: #444;
+    }
+    #user-list p {
+      margin: 6px 0;
+      font-size: 14.5px;
+      color: #333;
+      padding-left: 6px;
+      border-left: 3px solid #4caf50;
+      border-radius: 2px;
+    }
+    /* Scrollbar styling */
+    #chat::-webkit-scrollbar,
+    #sidebar::-webkit-scrollbar {
+      width: 8px;
+    }
+    #chat::-webkit-scrollbar-thumb,
+    #sidebar::-webkit-scrollbar-thumb {
+      background-color: #bbb;
+      border-radius: 4px;
+    }
+
+    /* 微信群样式 */
+    .message-wrapper {
+      display: flex;
+      max-width: 80%;
+      gap: 6px;
+      align-items: flex-end;
+      margin-bottom: 6px;
+    }
+    .message-wrapper.left {
+      justify-content: flex-start;
+      flex-direction: row;
+    }
+    .message-wrapper.right {
+      display: flex;
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+      margin-left: auto;
+      align-items: flex-end;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      background-color: #4caf50;
+      color: white;
+      font-weight: bold;
+      font-size: 20px;
+      line-height: 44px;
+      text-align: center;
+      border-radius: 6px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .message-wrapper.right .avatar {
+      background-color: #a5d6a7;
+      color: #003300;
+      margin-left: 8px;
+    }
+    .message-bubble {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14.5px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+      max-width: 100%;
+      position: relative;
+    }
+    .message-wrapper.left .message-bubble {
+      background-color: #fff;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+    }
+    .message-wrapper.left .message-bubble::before {
+      content: "";
+      position: absolute;
+      left: -6px;
+      margin-right: 2px;
+      top: calc(100% - 22px);
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-right: 8px solid #fff;
+    }
+    .message-wrapper.right .message-bubble {
+      background-color: #4caf50;
+      color: #000;
+      border-radius: 10px;
+    }
+    .message-wrapper.right .message-bubble::before {
+      content: "";
+      position: absolute;
+      right: -8px;
+      top: 16px;
+      width: 0;
+      height: 0;
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 8px solid #4caf50;
+    }
+    .nickname {
+      margin: 0;
+      padding: 0;
+      font-size: 11px;
+      line-height: 1;
+      color: #777;
+      white-space: nowrap;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+    }
+    .time-label {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      margin: 8px 0;
+      user-select: none;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+</head>
+<body>
+  <div id="main">
+    <h1>Chatroom Demo Jack And Tom!v1.6.4</h1>
+    <div id="online-users">Online users (0):</div>
+    <div id="chat"></div>
+    <div id="input-row">
+      <label for="nickname" id="nickname-label">Nickname:</label>
+      <input type="text" id="nickname" placeholder="Enter nickname" />
+      <input type="text" id="input" placeholder="Enter message" />
+      <button id="send">Send</button>
+    </div>
+  </div>
+  <div style="display: flex; gap: 10px; margin-top: 10px;">
+    <video id="localVideo" autoplay muted playsinline style="width: 160px; border-radius: 6px; border: 1px solid #ccc;"></video>
+    <video id="remoteVideo" autoplay playsinline style="width: 160px; border-radius: 6px; border: 1px solid #ccc;"></video>
+  </div>
+  <div id="sidebar">
+    <h2>User List</h2>
+    <div id="user-list">Loading...</div>
+  </div>
+
+  <script>
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const send = document.getElementById('send');
+    const nicknameInput = document.getElementById('nickname');
+    const onlineUsersDiv = document.getElementById('online-users');
+    const userListDiv = document.getElementById('user-list');
+
+    let lastMessageTime = null;
+
+    function formatTime(date) {
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSec = Math.floor(diffMs / 1000);
+      if (diffSec < 60) return 'Just now';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin} minutes ago`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour} hours ago`;
+      return date.toLocaleDateString();
+    }
+
+    function getUsernameColor(name) {
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const colors = [
+        '#e21400', '#91580f', '#f8a700', '#f78b00',
+        '#58dc00', '#287b00', '#a8f07a', '#4ae8c4',
+        '#3b88eb', '#3824aa', '#a700ff', '#d300e7'
+      ];
+      return colors[Math.abs(hash) % colors.length];
+    }
+
+    // 获取昵称首字母或首个汉字，做头像内容
+    function getAvatarLetter(name) {
+      if (!name) return '?';
+      const firstChar = name.trim().charAt(0);
+      return firstChar.toUpperCase();
+    }
+
+    // 添加消息，微信风格左/右气泡，时间间隔>3分钟才显示时间
+    function appendMessage(text, time = '', usernameMsg = '') {
+      const messageTime = time ? new Date(time) : new Date();
+      let showTime = false;
+      if (!lastMessageTime || (messageTime - lastMessageTime) / 1000 > 180) {
+        showTime = true;
+        lastMessageTime = messageTime;
+      }
+
+      if (showTime) {
+        const timeLabel = document.createElement('div');
+        timeLabel.className = 'time-label';
+        timeLabel.textContent = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        chat.appendChild(timeLabel);
+      }
+
+      const isOwn = usernameMsg === nicknameInput.value.trim();
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message-wrapper ' + (isOwn ? 'right' : 'left');
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = getAvatarLetter(usernameMsg);
+
+      const content = document.createElement('div');
+      content.className = 'message-bubble';
+
+      // 显示昵称在气泡左边（别人）或右边（自己）
+      const nick = document.createElement('div');
+      nick.className = 'nickname';
+      nick.textContent = usernameMsg;
+
+      if (isOwn) {
+        // Right-side: avatar on the right, content on the left, no nickname
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexDirection = 'row';
+        row.style.alignItems = 'flex-end';
+        row.style.gap = '6px';
+        // avatar on right, content on left
+        content.textContent = text;
+        row.appendChild(content);
+        row.appendChild(avatar);
+        wrapper.appendChild(row);
+      } else {
+        // Flex-based layout for others' messages with avatar on the left and nickname + content stacked on the right
+        const outerRow = document.createElement('div');
+        outerRow.style.display = 'flex';
+        outerRow.style.flexDirection = 'row';
+        outerRow.style.alignItems = 'flex-start';
+        outerRow.style.gap = '6px';
+
+        const rightColumn = document.createElement('div');
+        rightColumn.style.display = 'flex';
+        rightColumn.style.flexDirection = 'column';
+        rightColumn.style.gap = '2px';
+
+        avatar.classList.remove('grid-avatar');
+        nick.classList.remove('grid-nickname');
+        content.classList.remove('grid-content');
+
+        content.textContent = text;
+
+        rightColumn.appendChild(nick);
+        rightColumn.appendChild(content);
+        outerRow.appendChild(avatar);
+        outerRow.appendChild(rightColumn);
+
+        wrapper.appendChild(outerRow);
+      }
+
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function init() {
+      const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+
+      const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+      const randomNicknames = [
+        'Eagle', 'Tiger', 'Lion', 'Falcon', 'Wolf',
+        'Hawk', 'Panther', 'Bear', 'Fox', 'Dragon',
+        'Shark', 'Phoenix', 'Leopard', 'Cheetah', 'Jaguar'
+      ];
+
+      // Use localStorage to persist nickname on refresh
+      let storedName = localStorage.getItem('chat_nickname');
+      let username = storedName && storedName.trim().length > 0 ? storedName : randomNicknames[Math.floor(Math.random() * randomNicknames.length)] + Math.floor(Math.random() * 1000);
+      nicknameInput.value = username;
+
+      let presenceChannel;
+
+      function updateOnlineUsers(presence) {
+        if (!presence || !presence.state || Object.keys(presence.state).length === 0) {
+          onlineUsersDiv.textContent = `Online users (1): ${username}`;
+          userListDiv.innerHTML = "";
+          const p = document.createElement("p");
+          p.textContent = username;
+          userListDiv.appendChild(p);
+          return;
+        }
+
+        const users = presence.state;
+
+        // Collect unique usernames from all metas
+        const uniqueUsernames = new Set();
+        const userEntries = Object.entries(users).filter(([key, userArray]) => {
+          if (!Array.isArray(userArray)) {
+            return false;
+          }
+          const isValid = userArray.some(meta => meta && typeof meta.username === 'string');
+          return isValid;
+        });
+
+        userEntries.forEach(([key, userArray]) => {
+          userArray.forEach(meta => {
+            if (meta && typeof meta.username === 'string') {
+              uniqueUsernames.add(meta.username);
+            }
+          });
+        });
+
+        const userCount = uniqueUsernames.size;
+
+        onlineUsersDiv.textContent = `Online users (${userCount}): ${[...uniqueUsernames].join(', ')}`;
+
+        userListDiv.innerHTML = "";
+        uniqueUsernames.forEach(name => {
+          const p = document.createElement("p");
+          p.textContent = name;
+          userListDiv.appendChild(p);
+        });
+      }
+
+      // Generate a unique key for this user/session for presence tracking
+      function generatePresenceKey() {
+        return `${username}_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
+      }
+      let presenceKey = generatePresenceKey();
+
+      nicknameInput.addEventListener('input', () => {
+        const newName = nicknameInput.value.trim();
+        if (newName.length > 0 && newName !== username) {
+          username = newName;
+          localStorage.setItem('chat_nickname', username);
+          presenceKey = generatePresenceKey();
+          if (presenceChannel) {
+            presenceChannel.untrack().catch(console.error);
+            presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey }).catch(console.error);
+          }
+        }
+      });
+
+      presenceChannel = supabaseClient.channel('presence:messages', {
+        config: { presence: { key: presenceKey } }
+      });
+
+      presenceChannel.on('presence', { event: 'sync' }, () => {
+        setTimeout(() => {
+          updateOnlineUsers(presenceChannel.presence);
+        }, 100);
+      });
+
+      await presenceChannel.subscribe();
+
+      await presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey });
+
+      async function loadMessages() {
+        const { data, error } = await supabaseClient
+          .from('messages')
+          .select('*')
+          .order('inserted_at', { ascending: false }) // fetch latest messages first
+          .limit(100);
+
+        if (error) {
+          console.error('Error loading messages:', error);
+          return;
+        }
+
+        // Reverse to show from oldest to newest
+        data.reverse();
+
+        data.forEach(msg => {
+          appendMessage(msg.content, msg.inserted_at, msg.username);
+        });
+      }
+
+      await loadMessages();
+
+      const messagesChannel = supabaseClient.channel('public:messages');
+
+      messagesChannel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          payload => {
+            const { username, content, inserted_at } = payload.new;
+            appendMessage(content, inserted_at, username);
+          }
+        )
+        .subscribe();
+
+      send.onclick = async () => {
+        const message = input.value.trim();
+        if (!message) return;
+
+        console.log("📤 Sending message:", message);
+        const { data, error } = await supabaseClient
+          .from('messages')
+          .insert([{ username, content: message }]);
+
+        if (error) {
+          console.error("❌ DB insert error:", error);
+        } else {
+          console.log("✅ Message saved to DB:", data);
+        }
+
+        input.value = '';
+        send.disabled = true;
+      };
+
+      input.addEventListener('keypress', event => {
+        if (event.key === 'Enter') {
+          send.click();
+        }
+      });
+
+      input.addEventListener('input', () => {
+        send.disabled = input.value.trim().length === 0;
+      });
+
+      send.disabled = true;
+
+      // --- WebRTC video chat integration ---
+      // Add video signaling and peer connection via simple-peer and Supabase broadcast channel
+      const broadcastChannel = supabaseClient.channel('video:signal');
+
+      let localStream = null;
+      let peer = null;
+      const localVideo = document.getElementById('localVideo');
+      const remoteVideo = document.getElementById('remoteVideo');
+
+      async function setupMediaAndConnection() {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localVideo.srcObject = localStream;
+
+          const isInitiator = Math.random() > 0.5;
+          peer = new SimplePeer({ initiator: isInitiator, trickle: false, stream: localStream });
+
+          peer.on('signal', data => {
+            broadcastChannel.send({ type: 'signal', username, data });
+          });
+
+          peer.on('stream', remoteStream => {
+            remoteVideo.srcObject = remoteStream;
+          });
+
+          peer.on('error', err => {
+            console.error('WebRTC error:', err);
+          });
+
+          peer.on('connect', () => {
+            console.log('✅ WebRTC peer connected');
+          });
+
+        } catch (err) {
+          console.error('Failed to get local media:', err);
+        }
+      }
+
+      broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
+        const { username: sender, data } = payload;
+        if (sender !== username && peer) {
+          peer.signal(data);
+        }
+      });
+
+      await broadcastChannel.subscribe();
+      await setupMediaAndConnection();
+    }
+
+    init();
+  </script>
+</body>
+</html>
