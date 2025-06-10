@@ -544,112 +544,7 @@
 
       send.disabled = true;
 
-      // --- WebRTC video chat integration ---
-      // Add video signaling and peer connection via simple-peer and Supabase broadcast channel
-      const broadcastChannel = supabaseClient.channel('video:signal');
-
-      let localStream = null;
-      let peer = null;
-      const localVideo = document.getElementById('localVideo');
-      const remoteVideo = document.getElementById('remoteVideo');
-
-      async function setupMediaAndConnection() {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          localVideo.srcObject = localStream;
-
-          const isInitiator = Math.random() > 0.5;
-          peer = new SimplePeer({ initiator: isInitiator, trickle: false, stream: localStream });
-
-          peer.on('signal', data => {
-            broadcastChannel.send({ type: 'signal', username, data });
-          });
-
-          peer.on('stream', remoteStream => {
-            remoteVideo.srcObject = remoteStream;
-          });
-
-          peer.on('error', err => {
-            console.error('WebRTC error:', err);
-          });
-
-          peer.on('connect', () => {
-            console.log('✅ WebRTC peer connected');
-          });
-
-        } catch (err) {
-          console.error('Failed to get local media:', err);
-        }
-      }
-
-      broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
-        const { username: sender, data } = payload;
-        if (sender !== username && peer) {
-          peer.signal(data);
-        }
-      });
-
-      await broadcastChannel.subscribe();
-      await setupMediaAndConnection();
-    }
-
-    init();
-
-    // --- WebRTC 视频通话部分（支持两人互联，防止第三人出错） ---
-    // 需要页面有 <video id="localVideo"> 和 <video id="remoteVideo">
-    // 可以根据需要插入 video 标签
-    (function setupVideoElements() {
-      if (!document.getElementById('localVideo')) {
-        const local = document.createElement('video');
-        local.id = 'localVideo';
-        local.autoplay = true;
-        local.muted = true;
-        local.style.width = '180px';
-        local.style.position = 'fixed';
-        local.style.bottom = '20px';
-        local.style.right = '220px';
-        local.style.border = '2px solid #4caf50';
-        local.style.borderRadius = '10px';
-        local.style.background = '#000';
-        document.body.appendChild(local);
-      }
-      if (!document.getElementById('remoteVideo')) {
-        const remote = document.createElement('video');
-        remote.id = 'remoteVideo';
-        remote.autoplay = true;
-        remote.style.width = '260px';
-        remote.style.position = 'fixed';
-        remote.style.bottom = '20px';
-        remote.style.right = '20px';
-        remote.style.border = '2px solid #333';
-        remote.style.borderRadius = '10px';
-        remote.style.background = '#000';
-        document.body.appendChild(remote);
-      }
-    })();
-
-    // SimplePeer CDN
-    function loadSimplePeerCDN() {
-      return new Promise((resolve, reject) => {
-        if (window.SimplePeer) return resolve();
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js';
-        script.onload = () => resolve();
-        script.onerror = reject;
-        document.head.appendChild(script);
-      });
-    }
-
-    (async function setupVideoChat() {
-      await loadSimplePeerCDN();
-      // 用和 chat 一样的 supabaseClient/username
-      // 确保 username 和 supabaseClient 均已初始化
-      if (typeof supabase === 'undefined' || typeof supabaseClient === 'undefined' || typeof username === 'undefined') {
-        // 等待 init 完成
-        setTimeout(setupVideoChat, 500);
-        return;
-      }
-
+      // --- WebRTC 视频通话部分 ---
       const broadcastChannel = supabaseClient.channel('video:signal');
 
       let localStream = null;
@@ -657,70 +552,88 @@
       const localVideo = document.getElementById('localVideo');
       const remoteVideo = document.getElementById('remoteVideo');
       let otherUserName = null;
+      let isVideoSender = false;
 
       async function setupMediaAndConnection() {
         try {
           localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideo.srcObject = localStream;
-
-          await broadcastChannel.subscribe();
-
-          broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
-            const { username: sender, data } = payload;
-            if (sender === username) return; // 忽略自己发的消息
-
-            if (otherUserName && otherUserName !== sender) {
-              console.warn('👥 第三人尝试加入视频，已忽略:', sender);
-              return;
-            }
-
-            otherUserName = sender;
-
-            if (!peer) {
-              const initiatorFlag = username < sender;
-              peer = new SimplePeer({ initiator: initiatorFlag, trickle: false, stream: localStream });
-
-              peer.on('signal', signalData => {
-                broadcastChannel.send({ type: 'signal', username, data: signalData });
-              });
-
-              peer.on('stream', stream => {
-                remoteVideo.srcObject = stream;
-              });
-
-              peer.on('error', err => {
-                console.error('WebRTC error:', err);
-              });
-            }
-
-            peer.signal(data);
-          });
-
-          // 如果没人发送信令，也创建一个等待连接的 peer
-          setTimeout(() => {
-            if (!peer) {
-              peer = new SimplePeer({ initiator: true, trickle: false, stream: localStream });
-
-              peer.on('signal', signalData => {
-                broadcastChannel.send({ type: 'signal', username, data: signalData });
-              });
-
-              peer.on('stream', stream => {
-                remoteVideo.srcObject = stream;
-              });
-
-              peer.on('error', err => {
-                console.error('WebRTC error:', err);
-              });
-            }
-          }, 1000);
+          isVideoSender = true;
         } catch (err) {
-          console.error('Failed to get local media:', err);
+          console.warn('❌ 没有摄像头权限，作为观看者加入视频');
+          localVideo.style.display = 'none';
+          const tip = document.createElement('div');
+          tip.style.color = '#f44336';
+          tip.style.marginTop = '6px';
+          tip.textContent = '⚠️ 你当前无摄像头，正在观看对方视频';
+          localVideo.parentNode.insertBefore(tip, localVideo.nextSibling);
         }
+
+        await broadcastChannel.subscribe();
+
+        broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
+          const { username: sender, data } = payload;
+          if (sender === username) return;
+
+          if (otherUserName && otherUserName !== sender) {
+            console.warn('👥 第三人尝试加入视频，已忽略:', sender);
+            return;
+          }
+
+          otherUserName = sender;
+
+          if (!peer) {
+            const initiatorFlag = username < sender;
+            peer = new SimplePeer({
+              initiator: initiatorFlag,
+              trickle: false,
+              stream: isVideoSender ? localStream : undefined,
+            });
+
+            peer.on('signal', signalData => {
+              broadcastChannel.send({ type: 'signal', username, data: signalData });
+            });
+
+            peer.on('stream', stream => {
+              remoteVideo.srcObject = stream;
+            });
+
+            peer.on('error', err => {
+              console.error('WebRTC error:', err);
+            });
+          }
+
+          peer.signal(data);
+        });
+
+        setTimeout(() => {
+          if (!peer) {
+            peer = new SimplePeer({
+              initiator: true,
+              trickle: false,
+              stream: isVideoSender ? localStream : undefined,
+            });
+
+            peer.on('signal', signalData => {
+              broadcastChannel.send({ type: 'signal', username, data: signalData });
+            });
+
+            peer.on('stream', stream => {
+              remoteVideo.srcObject = stream;
+            });
+
+            peer.on('error', err => {
+              console.error('WebRTC error:', err);
+            });
+          }
+        }, 1000);
       }
 
       await setupMediaAndConnection();
-    })();
+    }
+
+    init();
+
   </script>
 </body>
 </html>
