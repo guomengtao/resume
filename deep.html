@@ -6,6 +6,25 @@
     <title>WebRTC + Supabase 最简 Demo</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <style>
+        .signal-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+            vertical-align: text-bottom;
+        }
+        .signal-offer {
+            background-color: #4caf50; /* 绿色 */
+            border-radius: 50%;
+        }
+        .signal-answer {
+            background-color: #2196f3; /* 蓝色 */
+            border-radius: 50%;
+        }
+        .signal-candidate {
+            background-color: #ff9800; /* 橙色 */
+            border-radius: 50%;
+        }
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -36,6 +55,12 @@
             background: #ccc;
             cursor: not-allowed;
         }
+        /* 添加点击后的按钮样式 */
+        button.clicked {
+            background: #4ade80; /* 淡绿色 */
+            color: black;
+            border: 1px solid #3b3b3b;
+        }
         .status {
             margin-top: 20px;
             padding: 10px;
@@ -59,21 +84,55 @@
 <body>
     <h1>WebRTC + Supabase 最简 Demo</h1>
     <p>使用您提供的 Supabase 凭据</p>
-    
+
+    <!-- 添加流程图引导区域 -->
+    <section style="margin: 20px 0; padding: 15px; border: 2px dashed #ccc; border-radius: 8px;">
+      <h2>🔄 操作流程指南</h2>
+      <ol>
+        <li>点击「1. 用户A - 初始化 PeerConnection」</li>
+        <li>点击「2. 用户B - 初始化 PeerConnection」</li>
+        <li>点击「3. 用户A - 创建并发送 Offer」</li>
+        <li>点击「4. 用户B - 核实是否收到 Offer」</li>
+        <li>点击「5. 用户B - 回复 Answer」</li>
+        <li>点击「6. 用户A - 确认 Answer」</li>
+      </ol>
+    </section>
+
+    <div id="step-guidance" style="margin-top: 20px; padding: 12px; background: #e0f7fa; border-left: 6px solid #00796b; border-radius: 4px;">
+      当前状态：请点击“1. 用户A - 初始化 PeerConnection”
+    </div>
+
+    <!-- 状态显示区域 -->
+    <section style="margin: 20px 0; padding: 10px; border: 1px solid #999; border-radius: 4px;">
+      <h3>🧠 实时状态检查</h3>
+      <ul>
+        <li>用户A localDescription 类型: <span id="aLocalDesc">未知</span></li>
+        <li>用户A remoteDescription 类型: <span id="aRemoteDesc">未知</span></li>
+        <li>用户B localDescription 类型: <span id="bLocalDesc">未知</span></li>
+        <li>用户B remoteDescription 类型: <span id="bRemoteDesc">未知</span></li>
+        <li>最近 Supabase 信令类型: <span id="lastSignalType">暂无</span></li>
+      </ul>
+      <button onclick="refreshDescriptions()">🔄 刷新状态</button>
+    </section>
+
     <div class="container">
         <div class="user-panel" id="userA">
             <h2>用户 A</h2>
-            <button id="initA">1. 初始化 PeerConnection</button>
-            <button id="offerA" disabled>2. 创建并发送 Offer</button>
-            <button id="confirmA" disabled>3. 确认 Answer</button>
+            <button id="initA">1. 用户A - 初始化 PeerConnection</button>
+            <button id="offerA" disabled>3. 用户A - 创建并发送 Offer</button>
+            <button id="checkOfferSentA" disabled>确认：用户A Offer是否已发送</button>
+            <button id="confirmA" disabled>6. 用户A - 确认 Answer</button>
             <div class="status" id="statusA">状态: 未初始化</div>
             <video id="videoA" autoplay muted></video>
         </div>
-        
+
         <div class="user-panel" id="userB">
             <h2>用户 B</h2>
-            <button id="initB">1. 初始化 PeerConnection</button>
-            <button id="answerB" disabled>2. 回复 Answer</button>
+            <button id="initB">2. 用户B - 初始化 PeerConnection</button>
+            <button id="checkOfferB" disabled>4. 用户B - 核实是否收到 Offer</button>
+            <button id="verifyOfferSupabase" disabled>确认：Supabase 是否收到 Offer</button>
+            <button id="viewLastSignal" disabled>查看 Supabase 最近信令</button>
+            <button id="answerB" disabled>5. 用户B - 回复 Answer</button>
             <div class="status" id="statusB">状态: 未初始化</div>
             <video id="videoB" autoplay></video>
         </div>
@@ -92,29 +151,46 @@
         let localStreamA;
         const videoA = document.getElementById('videoA');
         const statusA = document.getElementById('statusA');
-        
+        const initAButton = document.getElementById('initA');
+        const offerAButton = document.getElementById('offerA');
+        const confirmAButton = document.getElementById('confirmA');
+        const checkOfferSentAButton = document.getElementById('checkOfferSentA');
+
         // 用户B的变量
         let pcB;
         const videoB = document.getElementById('videoB');
         const statusB = document.getElementById('statusB');
-        
+        const initBButton = document.getElementById('initB');
+        const answerBButton = document.getElementById('answerB');
+        const checkOfferBButton = document.getElementById('checkOfferB');
+        const verifyOfferSupabaseButton = document.getElementById('verifyOfferSupabase');
+        const viewLastSignalButton = document.getElementById('viewLastSignal');
+
+        // 最近收到的Supabase信令
+        let lastSupabasePayload = null;
+
         // 信令频道
         const channel = supabaseClient.channel(roomId);
-        
+
         // 监听信令消息
         channel.on('broadcast', { event: 'webrtc_signal' }, (payload) => {
+            // 保存最近的Supabase信令
+            lastSupabasePayload = payload.payload;
+            // 🔥 输出 Supabase 收到的信令 payload
+            console.log('🔥 Supabase 收到信令:', payload.payload);
             const { from, to, type, data } = payload.payload;
-            
+
             // 用户B处理Offer
             if (type === 'offer' && to === 'B') {
+                console.log('➡️ 正在调用 handleRemoteOffer()');
                 handleRemoteOffer(data);
             }
-            
+
             // 用户A处理Answer
             if (type === 'answer' && to === 'A') {
                 handleRemoteAnswer(data);
             }
-            
+
             // 处理ICE候选
             if (type === 'candidate') {
                 const pc = to === 'A' ? pcA : pcB;
@@ -123,10 +199,30 @@
                         .catch(e => console.error('添加ICE候选失败:', e));
                 }
             }
+            // 自动刷新状态显示
+            refreshDescriptions();
         }).subscribe();
+        // 状态刷新函数
+        function refreshDescriptions() {
+            document.getElementById('aLocalDesc').textContent = pcA?.localDescription?.type || '无';
+            document.getElementById('aRemoteDesc').textContent = pcA?.remoteDescription?.type || '无';
+            document.getElementById('bLocalDesc').textContent = pcB?.localDescription?.type || '无';
+            document.getElementById('bRemoteDesc').textContent = pcB?.remoteDescription?.type || '无';
+            document.getElementById('lastSignalType').textContent = lastSupabasePayload?.type || '无';
+        }
+
+        function updateStepGuidance(message) {
+            const guideBox = document.getElementById('step-guidance');
+            if (guideBox) {
+                guideBox.textContent = '当前状态：' + message;
+            }
+        }
         
         // 用户A初始化
-        document.getElementById('initA').addEventListener('click', async () => {
+        initAButton.addEventListener('click', async () => {
+            console.log('点击：用户A - 初始化 PeerConnection');
+            initAButton.classList.add('clicked');
+            initAButton.disabled = true;
             try {
                 // 获取本地媒体流
                 localStreamA = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -135,8 +231,7 @@
                 // 创建PeerConnection
                 pcA = new RTCPeerConnection({
                     iceServers: [
-                        { urls: "stun:stun.l.google.com:19302" },
-                        { urls: "stun:stun.qq.com:3478" }
+                        { urls: 'stun:stun.l.google.com:19302' }
                     ]
                 });
                 
@@ -171,17 +266,22 @@
                 // 更新状态
                 statusA.textContent = '状态: 初始化完成';
                 statusA.className = 'status success';
-                document.getElementById('offerA').disabled = false;
+                offerAButton.disabled = false;
+                updateStepGuidance('请点击“3. 用户A - 创建并发送 Offer”');
                 
             } catch (err) {
                 console.error('用户A初始化失败:', err);
                 statusA.textContent = `状态: 初始化失败 - ${err.message}`;
                 statusA.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
             }
         });
         
         // 用户A创建并发送Offer
-        document.getElementById('offerA').addEventListener('click', async () => {
+        offerAButton.addEventListener('click', async () => {
+            console.log('点击：用户A - 创建并发送 Offer');
+            offerAButton.classList.add('clicked');
+            offerAButton.disabled = true;
             try {
                 const offer = await pcA.createOffer();
                 await pcA.setLocalDescription(offer);
@@ -199,31 +299,49 @@
                 });
                 
                 statusA.textContent = '状态: Offer已发送';
-                document.getElementById('confirmA').disabled = false;
+                confirmAButton.disabled = false;
+                checkOfferSentAButton.disabled = false;
+                updateStepGuidance('请切换到用户B，点击“2. 用户B - 初始化 PeerConnection”');
                 
             } catch (err) {
                 console.error('创建Offer失败:', err);
                 statusA.textContent = `状态: Offer发送失败 - ${err.message}`;
                 statusA.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
+            }
+        });
+
+        checkOfferSentAButton.addEventListener('click', () => {
+            console.log('点击：确认用户A Offer是否已发送');
+            if (pcA?.localDescription?.type === 'offer') {
+                alert('用户A 已成功发送 Offer');
+            } else {
+                alert('未检测到已发送的 Offer');
             }
         });
         
         // 用户A确认Answer
-        document.getElementById('confirmA').addEventListener('click', () => {
+        confirmAButton.addEventListener('click', () => {
+            console.log('点击：用户A - 确认 Answer');
+            confirmAButton.classList.add('clicked');
+            confirmAButton.disabled = true;
             statusA.textContent = '状态: 等待ICE连接...';
+            updateStepGuidance('连接建立中，请稍候...');
         });
         
-        // 用户B初始化
-        document.getElementById('initB').addEventListener('click', async () => {
-            try {
-                // 创建PeerConnection
-                pcB = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: "stun:stun.l.google.com:19302" },
-                        { urls: "stun:stun.qq.com:3478" }
-                    ]
-                });
-                
+            // 用户B初始化
+            initBButton.addEventListener('click', async () => {
+                console.log('点击：用户B - 初始化 PeerConnection');
+                initBButton.classList.add('clicked');
+                initBButton.disabled = true;
+                try {
+                    // 创建PeerConnection
+                    pcB = new RTCPeerConnection({
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' }
+                        ]
+                    });
+
                 // ICE候选处理
                 pcB.onicecandidate = (e) => {
                     if (e.candidate) {
@@ -239,28 +357,59 @@
                         });
                     }
                 };
-                
+
                 // 监听远程流
                 pcB.ontrack = (e) => {
                     if (e.streams && e.streams[0]) {
                         videoA.srcObject = e.streams[0];
                     }
                 };
-                
+
                 // 更新状态
                 statusB.textContent = '状态: 初始化完成';
                 statusB.className = 'status success';
-                document.getElementById('answerB').disabled = false;
-                
+                checkOfferBButton.disabled = false;
+                answerBButton.disabled = false;
+                checkOfferBButton.disabled = false;
+                verifyOfferSupabaseButton.disabled = false;
+                viewLastSignalButton.disabled = false;
+                updateStepGuidance('请点击“4. 用户B - 核实是否收到 Offer”');
+
             } catch (err) {
                 console.error('用户B初始化失败:', err);
                 statusB.textContent = `状态: 初始化失败 - ${err.message}`;
                 statusB.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
             }
         });
         
+        checkOfferBButton.addEventListener('click', async () => {
+            console.log('点击：用户B - 核实是否收到 Offer');
+            if (pcB?.remoteDescription?.type === 'offer') {
+                alert('用户B 已成功收到 Offer');
+            } else if (lastSupabasePayload?.type === 'offer') {
+                try {
+                    await pcB.setRemoteDescription(new RTCSessionDescription(lastSupabasePayload.data));
+                    alert('用户B 手动设置 remoteDescription 成功');
+                } catch (err) {
+                    alert('设置 remoteDescription 失败：' + err.message);
+                }
+            } else {
+                alert('用户B 尚未接收到有效的 Offer');
+            }
+        });
+
+        // Supabase Offer 验证按钮
+        verifyOfferSupabaseButton.addEventListener('click', () => {
+            console.log('点击：确认 Supabase 是否收到 Offer');
+            alert('请查看控制台输出是否有 payload 中包含 type: "offer" 的消息');
+        });
+        
         // 用户B回复Answer
-        document.getElementById('answerB').addEventListener('click', async () => {
+        answerBButton.addEventListener('click', async () => {
+            console.log('点击：用户B - 回复 Answer');
+            answerBButton.classList.add('clicked');
+            answerBButton.disabled = true;
             try {
                 const answer = await pcB.createAnswer();
                 await pcB.setLocalDescription(answer);
@@ -278,11 +427,13 @@
                 });
                 
                 statusB.textContent = '状态: Answer已发送';
+                updateStepGuidance('请切换到用户A，点击“6. 用户A - 确认 Answer”');
                 
             } catch (err) {
                 console.error('创建Answer失败:', err);
                 statusB.textContent = `状态: Answer发送失败 - ${err.message}`;
                 statusB.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
             }
         });
         
@@ -293,14 +444,14 @@
             try {
                 await pcB.setRemoteDescription(new RTCSessionDescription(offer));
                 statusB.textContent = '状态: 已接收Offer';
-                
-                // 自动回复Answer
-                document.getElementById('answerB').click();
+                answerBButton.disabled = false; // 让用户手动点击
+                checkOfferBButton.disabled = false;
                 
             } catch (err) {
                 console.error('处理Offer失败:', err);
                 statusB.textContent = `状态: 处理Offer失败 - ${err.message}`;
                 statusB.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
             }
         }
         
@@ -323,8 +474,35 @@
                 console.error('处理Answer失败:', err);
                 statusA.textContent = `状态: 处理Answer失败 - ${err.message}`;
                 statusA.className = 'status error';
+                updateStepGuidance('发生错误：' + err.message + '，请刷新页面重试或检查步骤是否遗漏');
             }
         }
+    </script>
+    <section id="signal-log" style="margin-top: 20px; padding: 10px; border: 1px solid #999; border-radius: 4px;">
+      <h3>📡 最近 Supabase 信令</h3>
+      <pre id="signalLogContent" style="white-space: pre-wrap; background: #f9f9f9; padding: 10px; border-radius: 4px;"></pre>
+    </section>
+    <script>
+    // 查看最近 Supabase 信令（优化显示与健壮性）
+    viewLastSignalButton.addEventListener('click', () => {
+        console.log('点击：查看 Supabase 最近信令');
+        const display = document.getElementById('signalLogContent');
+        if (!display) return;
+
+        if (lastSupabasePayload) {
+            const { type } = lastSupabasePayload;
+            const iconMap = {
+                offer: '🟢',
+                answer: '🔵',
+                candidate: '🟠'
+            };
+            const icon = iconMap[type] || '❔';
+            const pretty = JSON.stringify(lastSupabasePayload, null, 2);
+            display.innerHTML = `<strong>${icon} 类型: ${type}</strong><br/><pre>${pretty}</pre>`;
+        } else {
+            display.innerHTML = '<em>尚未收到任何信令消息</em>';
+        }
+    });
     </script>
 </body>
 </html>

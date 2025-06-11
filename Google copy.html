@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Minimal P2P Connection Test</title>
+</head>
+<body>
+  <h2>Open the Console to See P2P Connection Status</h2>
+  <script>
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    };
+
+    const pc1 = new RTCPeerConnection(config);
+    const pc2 = new RTCPeerConnection(config);
+
+    pc1.onicecandidate = e => {
+      if (e.candidate) {
+        pc2.addIceCandidate(e.candidate).catch(console.error);
+      }
+    };
+
+    pc2.onicecandidate = e => {
+      if (e.candidate) {
+        pc1.addIceCandidate(e.candidate).catch(console.error);
+      }
+    };
+
+    pc2.onconnectionstatechange = () => {
+      console.log('pc2 connection state:', pc2.connectionState);
+    };
+
+    const channel = pc1.createDataChannel('test');
+
+    channel.onopen = () => {
+      console.log('✅ P2P DataChannel connected!');
+      channel.send('Hello from pc1');
+    };
+
+    channel.onmessage = e => {
+      console.log('📩 Message received:', e.data);
+    };
+
+    pc2.ondatachannel = event => {
+      const receiveChannel = event.channel;
+      receiveChannel.onmessage = e => {
+        console.log('📩 pc2 received:', e.data);
+        receiveChannel.send('Hi from pc2');
+      };
+    };
+
+    pc1.createOffer()
+      .then(offer => pc1.setLocalDescription(offer))
+      .then(() => pc2.setRemoteDescription(pc1.localDescription))
+      .then(() => pc2.createAnswer())
+      .then(answer => pc2.setLocalDescription(answer))
+      .then(() => pc1.setRemoteDescription(pc2.localDescription))
+      .catch(console.error);
+  </script>
+</body>
+</html>

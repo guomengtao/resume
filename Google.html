@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Minimal P2P Chat Demo with Supabase</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      gap: 40px;
+      padding: 20px;
+    }
+    .peer {
+      border: 1px solid #ccc;
+      padding: 15px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+    }
+    .messages {
+      border: 1px solid #999;
+      height: 200px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      padding: 5px;
+      background: #f9f9f9;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 6px;
+      margin-right: 5px;
+    }
+    button {
+      padding: 6px 10px;
+    }
+    .header {
+      font-weight: bold;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+</head>
+<body>
+  <div class="peer" id="peer1">
+    <div class="header">Peer 1 (pc1)</div>
+    <div class="messages" id="messages1"></div>
+    <div style="display:flex;">
+      <input type="text" id="input1" placeholder="Type message for Peer 2" />
+      <button id="send1">Send</button>
+    </div>
+  </div>
+
+  <div class="peer" id="peer2">
+    <div class="header">Peer 2 (pc2)</div>
+    <div class="messages" id="messages2"></div>
+    <div style="display:flex;">
+      <input type="text" id="input2" placeholder="Type message for Peer 1" />
+      <button id="send2">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // 初始化 Supabase
+    const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+    // 选择端口测试时手动修改为 'pc1' 或 'pc2'
+    const myId = 'pc1'; // 测试另一个页面时改为 'pc2'
+
+    // 频道名
+    const channelName = 'p2p-signaling-channel';
+    const channel = supabaseClient.channel(channelName);
+
+    // DOM元素
+    const messages1 = document.getElementById('messages1');
+    const messages2 = document.getElementById('messages2');
+    const input1 = document.getElementById('input1');
+    const input2 = document.getElementById('input2');
+    const send1 = document.getElementById('send1');
+    const send2 = document.getElementById('send2');
+
+    function appendMessage(container, sender, message) {
+      const div = document.createElement('div');
+      div.textContent = `${sender}: ${message}`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    const pc1 = new RTCPeerConnection(config);
+    const pc2 = new RTCPeerConnection(config);
+
+    // pc1 创建 DataChannel
+    const dataChannel1 = pc1.createDataChannel('chat');
+
+    dataChannel1.onopen = () => {
+      appendMessage(messages1, 'System', 'DataChannel opened');
+    };
+    dataChannel1.onmessage = e => {
+      appendMessage(messages1, 'Peer 2', e.data);
+    };
+
+    // pc2 接收 DataChannel
+    pc2.ondatachannel = event => {
+      const dataChannel2 = event.channel;
+      dataChannel2.onopen = () => {
+        appendMessage(messages2, 'System', 'DataChannel opened');
+      };
+      dataChannel2.onmessage = e => {
+        appendMessage(messages2, 'Peer 1', e.data);
+      };
+
+      send2.onclick = () => {
+        const msg = input2.value.trim();
+        if (msg && dataChannel2.readyState === 'open') {
+          dataChannel2.send(msg);
+          appendMessage(messages2, 'Me', msg);
+          input2.value = '';
+        }
+      };
+      input2.addEventListener('keydown', e => {
+        if (e.key === 'Enter') send2.click();
+      });
+    };
+
+    send1.onclick = () => {
+      const msg = input1.value.trim();
+      if (msg && dataChannel1.readyState === 'open') {
+        dataChannel1.send(msg);
+        appendMessage(messages1, 'Me', msg);
+        input1.value = '';
+      }
+    };
+    input1.addEventListener('keydown', e => {
+      if (e.key === 'Enter') send1.click();
+    });
+
+    // 订阅 Supabase 信令频道，监听信令事件
+    channel.on('broadcast', { event: 'signal' }, (payload) => {
+      const data = payload.payload;
+      if (data.from !== myId) {
+        handleSignal(data.signal);
+      }
+    }).subscribe();
+
+    // 发送信令
+    function sendSignal(signal) {
+      channel.send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: { from: myId, signal }
+      });
+    }
+
+    // 处理信令
+    function handleSignal(signal) {
+      if (signal.type === 'offer') {
+        pc2.setRemoteDescription(new RTCSessionDescription(signal))
+          .then(() => pc2.createAnswer())
+          .then(answer => {
+            pc2.setLocalDescription(answer);
+            sendSignal(answer);
+          })
+          .catch(console.error);
+      } else if (signal.type === 'answer') {
+        pc1.setRemoteDescription(new RTCSessionDescription(signal)).catch(console.error);
+      } else if (signal.type === 'candidate') {
+        const candidate = new RTCIceCandidate(signal.candidate);
+        if (myId === 'pc1') {
+          pc1.addIceCandidate(candidate).catch(console.error);
+        } else {
+          pc2.addIceCandidate(candidate).catch(console.error);
+        }
+      }
+    }
+
+    pc1.onicecandidate = e => {
+      if (e.candidate) sendSignal({ type: 'candidate', candidate: e.candidate });
+    };
+    pc2.onicecandidate = e => {
+      if (e.candidate) sendSignal({ type: 'candidate', candidate: e.candidate });
+    };
+
+    // pc1 发起连接
+    if (myId === 'pc1') {
+      pc1.createOffer()
+        .then(offer => {
+          pc1.setLocalDescription(offer);
+          sendSignal(offer);
+        })
+        .catch(console.error);
+    }
+
+    pc2.onconnectionstatechange = () => {
+      console.log('pc2 connection state:', pc2.connectionState);
+    };
+  </script>
+</body>
+</html>
