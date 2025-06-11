@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>WebRTC Signal Debugger</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    textarea { width: 100%; height: 150px; }
+    pre { background: #eee; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h2>WebRTC 手动信令调试器</h2>
+  <label>
+    <input type="radio" name="role" value="initiator" checked /> 发起人
+  </label>
+  <label>
+    <input type="radio" name="role" value="responder" /> 应答人
+  </label>
+
+  <div style="margin-top:10px;">
+    <button id="startBtn">开始创建 Peer</button>
+  </div>
+
+  <h3>本地生成信令 (需要发给对方)</h3>
+  <textarea id="localSignal" readonly></textarea>
+
+  <!-- 已移除手动输入信令部分，改为 localStorage 自动同步 -->
+
+  <h3>控制台日志</h3>
+  <pre id="log"></pre>
+
+  <script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+  <script>
+    // 信令通道 key
+    const SIGNAL_KEY = 'webrtc-debugger-signal';
+    let peer = null;
+
+    function log(message) {
+      console.log(message);
+      const logElem = document.getElementById('log');
+      logElem.textContent += message + '\n';
+    }
+
+    document.getElementById('startBtn').onclick = async () => {
+      const role = document.querySelector('input[name="role"]:checked').value;
+      log("🎯 角色选择: " + role);
+
+      peer = new SimplePeer({ initiator: role === 'initiator', trickle: false });
+
+      peer.on('signal', data => {
+        const encoded = JSON.stringify(data);
+        log("📡 本地生成信令并写入 localStorage:");
+        log(encoded);
+        document.getElementById('localSignal').value = encoded;
+        localStorage.setItem(SIGNAL_KEY, encoded);
+      });
+
+      peer.on('connect', () => {
+        log("✅ Peer 连接成功！");
+      });
+
+      peer.on('error', err => {
+        log("❌ 错误: " + err.message);
+      });
+
+      peer.on('data', data => {
+        log("📥 收到数据: " + data);
+      });
+
+      // 如果是 responder，立即读取 localStorage 看是否已有 offer
+      if (role === 'responder') {
+        const incoming = localStorage.getItem(SIGNAL_KEY);
+        if (incoming) {
+          try {
+            const parsed = JSON.parse(incoming);
+            log("📥 检测到本地已存在对方 offer，立即 signal:");
+            log(JSON.stringify(parsed, null, 2));
+            peer.signal(parsed);
+          } catch (e) {
+            log("❌ JSON 解析错误");
+          }
+        }
+      }
+    };
+
+    // 监听 storage 事件，自动响应另一个页面的 offer/answer
+    window.addEventListener('storage', e => {
+      if (e.key === SIGNAL_KEY && peer && !peer.destroyed) {
+        try {
+          const newSignal = JSON.parse(e.newValue);
+          log("📥 检测到另一窗口写入信令，尝试 signal():");
+          log(JSON.stringify(newSignal, null, 2));
+          peer.signal(newSignal);
+        } catch (e) {
+          log("❌ 监听 storage 时解析失败");
+        }
+      }
+    });
+  </script>
+</body>
+</html>

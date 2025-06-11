@@ -251,6 +251,7 @@
       <input type="text" id="input" placeholder="Enter message" />
       <button id="send">Send</button>
     </div>
+    <button id="startVideo">Start Video</button>
   </div>
   <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px;">
     <video id="localVideo" autoplay muted playsinline style="width: 300px; border-radius: 8px; border: 1px solid #ccc;"></video>
@@ -383,7 +384,6 @@
     async function init() {
       const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
       const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
-
       const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
       const randomNicknames = [
@@ -545,86 +545,39 @@
 
       send.disabled = true;
 
-      // --- WebRTC 视频通话部分 ---
-      const broadcastChannel = supabaseClient.channel('video:signal');
-
+      // --- WebRTC 视频通话部分（使用 Supabase 数据库 signals 表进行信令） ---
       let localStream = null;
       let peer = null;
       const localVideo = document.getElementById('localVideo');
       const remoteVideo = document.getElementById('remoteVideo');
-      let otherUserName = null;
       let isVideoSender = false;
 
-      // 判断自己是否为 initiator: 基于昵称字典序
-      function determineInitiatorByName(presenceState, myName) {
-        const usernames = [];
-
-        Object.values(presenceState || {}).forEach(userArray => {
-          userArray.forEach(meta => {
-            if (meta && meta.username) {
-              usernames.push(meta.username);
-            }
-          });
-        });
-
-        usernames.sort();
-
-        return usernames.length > 0 && myName === usernames[0];
-      }
-
-      // --- WebRTC handshake/初始化逻辑 ---
-      // 全局 handshake 状态
-      let hasReceivedHello = false;
-      let hasSentHello = false;
-
-      // tryCreatePeer 只允许 Tom 和 Jack 建立视频连接
-      function tryCreatePeer() {
-        if (peer || !hasReceivedHello || !hasSentHello) return;
-
-        // 限定只有 Tom 和 Jack 可以建立视频连接
-        if (username !== 'Tom' && username !== 'Jack') {
-          console.warn('⚠️ 当前用户不是 Tom 或 Jack，跳过视频连接');
-          return;
-        }
-
-        const initiatorFlag = username === 'Tom';
-        console.log('🧭 I am', username, ', initiator:', initiatorFlag);
-
-        peer = new SimplePeer({
-          initiator: initiatorFlag,
-          trickle: false,
-          stream: isVideoSender ? localStream : undefined,
-        });
-
-        let offerSent = null;
-        peer.on('signal', signalData => {
-          const type = signalData?.type || (signalData?.candidate ? 'candidate' : 'unknown');
-          console.log(`📡 Sending signal: type=${type}, to "${otherUserName || 'unknown'}"`, signalData);
-
-          if (type === 'offer') {
-            offerSent = signalData;
-            setTimeout(() => {
-              if (!remoteVideo.srcObject) {
-                console.log('🔁 Retrying signal: re-sending offer...');
-                broadcastChannel.send({ type: 'signal', username, data: offerSent });
-              }
-            }, 3000);
-          }
-
-          broadcastChannel.send({ type: 'signal', username, data: signalData });
-        });
-
-        peer.on('stream', stream => {
-          console.log('🎥 Received remote stream from', otherUserName || 'unknown');
-          remoteVideo.srcObject = stream;
-        });
-
-        peer.on('error', err => {
-          console.error('WebRTC error:', err);
-        });
-      }
-
       async function setupMediaAndConnection() {
+        // 所有人都订阅信令
+        supabaseClient
+          .channel('public:signals')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'signals',
+              filter: `to=eq.${username}`
+            },
+            payload => {
+              const { from, type, data } = payload.new;
+              console.log(`📨 DB Signal from "${from}" (type=${type})`, data);
+              peer && peer.signal(data);
+            }
+          )
+          .subscribe();
+        // 每个人都准备好 peer 实例以接收信令
+        await startWebRTC(false); // 非 initiator 模式，准备好 peer 实例以接收信令
+      }
+
+      // WebRTC 连接函数（仅在点击按钮时调用 initiator 方式）
+      async function startWebRTC(isInitiator) {
+        if (peer) return; // 防止重复创建
         try {
           localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideo.srcObject = localStream;
@@ -640,56 +593,35 @@
           localVideo.parentNode.insertBefore(tip, localVideo.nextSibling);
         }
 
-        if (username !== 'Tom' && username !== 'Jack') {
-          console.warn('❌ 当前用户不是 Tom 或 Jack，不参与视频连接');
-          return;
-        }
-
-        // Debug event listener
-        broadcastChannel.on('broadcast', { event: 'debug' }, ({ payload }) => {
-          console.log(`🐞 DEBUG received from ${payload.username}:`, payload);
-        });
-
-        broadcastChannel.on('broadcast', { event: 'signal' }, ({ payload }) => {
-          const { username: sender, data } = payload;
-          const signalType = data?.type || (data?.candidate ? 'candidate' : 'unknown');
-          console.log(`📨 Received signal from "${sender}" (type=${signalType})`, data);
-          if (sender === username) return;
-
-          peer.signal(data);
-        });
-
-        await broadcastChannel.subscribe();
-        console.log('✅ Subscribed to broadcast channel');
-
-        // Send test debug broadcast
-        broadcastChannel.send({ type: 'debug', username, content: 'hello from ' + username });
-
-        const initiatorFlag = username === 'Tom';
-        console.log('🧭 I am', username, ', initiator:', initiatorFlag);
-
         peer = new SimplePeer({
-          initiator: initiatorFlag,
+          initiator: isInitiator,
           trickle: false,
           stream: isVideoSender ? localStream : undefined,
         });
 
-        let offerSent = null;
-        peer.on('signal', signalData => {
+        peer.on('signal', async signalData => {
           const type = signalData?.type || (signalData?.candidate ? 'candidate' : 'unknown');
-          console.log(`📡 Sending signal: type=${type}`, signalData);
+          console.log(`📡 DB Sending signal: type=${type}`, signalData);
+          // 查找 presence 表中除自己外的第一个在线用户
+          const { data: userRows } = await supabaseClient
+            .from('presence')
+            .select('username')
+            .neq('username', username)
+            .limit(1);
 
-          if (type === 'offer') {
-            offerSent = signalData;
-            setTimeout(() => {
-              if (!remoteVideo.srcObject) {
-                console.log('🔁 Retrying signal: re-sending offer...');
-                broadcastChannel.send({ type: 'signal', username, data: offerSent });
+          const target = userRows?.[0]?.username;
+          if (target) {
+            await supabaseClient.from('signals').insert([
+              {
+                from: username,
+                to: target,
+                type,
+                data: signalData
               }
-            }, 3000);
+            ]);
+          } else {
+            console.warn('❌ No other user found to send signal to.');
           }
-
-          broadcastChannel.send({ type: 'signal', username, data: signalData });
         });
 
         peer.on('stream', stream => {
@@ -701,6 +633,12 @@
           console.error('WebRTC error:', err);
         });
       }
+
+      // 绑定 Start Video 按钮（全局，setupMediaAndConnection 外）
+      document.getElementById('startVideo').addEventListener('click', async () => {
+        if (peer) return; // 防止重复点击
+        await startWebRTC(true); // initiator = true
+      });
 
       await setupMediaAndConnection();
     }

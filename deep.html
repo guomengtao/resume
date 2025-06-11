@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC + Supabase 最简 Demo</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .user-panel {
+            flex: 1;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        button {
+            display: block;
+            margin: 10px 0;
+            padding: 8px 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f0f0f0;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        video {
+            width: 100%;
+            max-width: 300px;
+            background: #000;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebRTC + Supabase 最简 Demo</h1>
+    <p>使用您提供的 Supabase 凭据</p>
+    
+    <div class="container">
+        <div class="user-panel" id="userA">
+            <h2>用户 A</h2>
+            <button id="initA">1. 初始化 PeerConnection</button>
+            <button id="offerA" disabled>2. 创建并发送 Offer</button>
+            <button id="confirmA" disabled>3. 确认 Answer</button>
+            <div class="status" id="statusA">状态: 未初始化</div>
+            <video id="videoA" autoplay muted></video>
+        </div>
+        
+        <div class="user-panel" id="userB">
+            <h2>用户 B</h2>
+            <button id="initB">1. 初始化 PeerConnection</button>
+            <button id="answerB" disabled>2. 回复 Answer</button>
+            <div class="status" id="statusB">状态: 未初始化</div>
+            <video id="videoB" autoplay></video>
+        </div>
+    </div>
+
+    <script>
+        // 使用您提供的 Supabase 凭据
+        const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+        
+        const roomId = 'demo-room-1'; // 固定房间ID，实际应用中应动态生成
+        
+        // 用户A的变量
+        let pcA;
+        let localStreamA;
+        const videoA = document.getElementById('videoA');
+        const statusA = document.getElementById('statusA');
+        
+        // 用户B的变量
+        let pcB;
+        const videoB = document.getElementById('videoB');
+        const statusB = document.getElementById('statusB');
+        
+        // 信令频道
+        const channel = supabaseClient.channel(roomId);
+        
+        // 监听信令消息
+        channel.on('broadcast', { event: 'webrtc_signal' }, (payload) => {
+            const { from, to, type, data } = payload.payload;
+            
+            // 用户B处理Offer
+            if (type === 'offer' && to === 'B') {
+                handleRemoteOffer(data);
+            }
+            
+            // 用户A处理Answer
+            if (type === 'answer' && to === 'A') {
+                handleRemoteAnswer(data);
+            }
+            
+            // 处理ICE候选
+            if (type === 'candidate') {
+                const pc = to === 'A' ? pcA : pcB;
+                if (pc && data) {
+                    pc.addIceCandidate(new RTCIceCandidate(data))
+                        .catch(e => console.error('添加ICE候选失败:', e));
+                }
+            }
+        }).subscribe();
+        
+        // 用户A初始化
+        document.getElementById('initA').addEventListener('click', async () => {
+            try {
+                // 获取本地媒体流
+                localStreamA = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                videoA.srcObject = localStreamA;
+                
+                // 创建PeerConnection
+                pcA = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun.qq.com:3478" }
+                    ]
+                });
+                
+                // 添加本地流
+                localStreamA.getTracks().forEach(track => {
+                    pcA.addTrack(track, localStreamA);
+                });
+                
+                // ICE候选处理
+                pcA.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'webrtc_signal',
+                            payload: {
+                                from: 'A',
+                                to: 'B',
+                                type: 'candidate',
+                                data: e.candidate
+                            }
+                        });
+                    }
+                };
+                
+                // 监听远程流
+                pcA.ontrack = (e) => {
+                    if (e.streams && e.streams[0]) {
+                        videoB.srcObject = e.streams[0];
+                    }
+                };
+                
+                // 更新状态
+                statusA.textContent = '状态: 初始化完成';
+                statusA.className = 'status success';
+                document.getElementById('offerA').disabled = false;
+                
+            } catch (err) {
+                console.error('用户A初始化失败:', err);
+                statusA.textContent = `状态: 初始化失败 - ${err.message}`;
+                statusA.className = 'status error';
+            }
+        });
+        
+        // 用户A创建并发送Offer
+        document.getElementById('offerA').addEventListener('click', async () => {
+            try {
+                const offer = await pcA.createOffer();
+                await pcA.setLocalDescription(offer);
+                
+                // 通过Supabase发送Offer
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'webrtc_signal',
+                    payload: {
+                        from: 'A',
+                        to: 'B',
+                        type: 'offer',
+                        data: offer
+                    }
+                });
+                
+                statusA.textContent = '状态: Offer已发送';
+                document.getElementById('confirmA').disabled = false;
+                
+            } catch (err) {
+                console.error('创建Offer失败:', err);
+                statusA.textContent = `状态: Offer发送失败 - ${err.message}`;
+                statusA.className = 'status error';
+            }
+        });
+        
+        // 用户A确认Answer
+        document.getElementById('confirmA').addEventListener('click', () => {
+            statusA.textContent = '状态: 等待ICE连接...';
+        });
+        
+        // 用户B初始化
+        document.getElementById('initB').addEventListener('click', async () => {
+            try {
+                // 创建PeerConnection
+                pcB = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun.qq.com:3478" }
+                    ]
+                });
+                
+                // ICE候选处理
+                pcB.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'webrtc_signal',
+                            payload: {
+                                from: 'B',
+                                to: 'A',
+                                type: 'candidate',
+                                data: e.candidate
+                            }
+                        });
+                    }
+                };
+                
+                // 监听远程流
+                pcB.ontrack = (e) => {
+                    if (e.streams && e.streams[0]) {
+                        videoA.srcObject = e.streams[0];
+                    }
+                };
+                
+                // 更新状态
+                statusB.textContent = '状态: 初始化完成';
+                statusB.className = 'status success';
+                document.getElementById('answerB').disabled = false;
+                
+            } catch (err) {
+                console.error('用户B初始化失败:', err);
+                statusB.textContent = `状态: 初始化失败 - ${err.message}`;
+                statusB.className = 'status error';
+            }
+        });
+        
+        // 用户B回复Answer
+        document.getElementById('answerB').addEventListener('click', async () => {
+            try {
+                const answer = await pcB.createAnswer();
+                await pcB.setLocalDescription(answer);
+                
+                // 通过Supabase发送Answer
+                await channel.send({
+                    type: 'broadcast',
+                    event: 'webrtc_signal',
+                    payload: {
+                        from: 'B',
+                        to: 'A',
+                        type: 'answer',
+                        data: answer
+                    }
+                });
+                
+                statusB.textContent = '状态: Answer已发送';
+                
+            } catch (err) {
+                console.error('创建Answer失败:', err);
+                statusB.textContent = `状态: Answer发送失败 - ${err.message}`;
+                statusB.className = 'status error';
+            }
+        });
+        
+        // 处理远程Offer (用户B)
+        async function handleRemoteOffer(offer) {
+            if (!pcB) return;
+            
+            try {
+                await pcB.setRemoteDescription(new RTCSessionDescription(offer));
+                statusB.textContent = '状态: 已接收Offer';
+                
+                // 自动回复Answer
+                document.getElementById('answerB').click();
+                
+            } catch (err) {
+                console.error('处理Offer失败:', err);
+                statusB.textContent = `状态: 处理Offer失败 - ${err.message}`;
+                statusB.className = 'status error';
+            }
+        }
+        
+        // 处理远程Answer (用户A)
+        async function handleRemoteAnswer(answer) {
+            if (!pcA) return;
+            
+            try {
+                await pcA.setRemoteDescription(new RTCSessionDescription(answer));
+                statusA.textContent = '状态: 已接收Answer';
+                
+                // 监听连接状态
+                pcA.onconnectionstatechange = () => {
+                    if (pcA.connectionState === 'connected') {
+                        statusA.textContent = '状态: P2P连接已建立!';
+                    }
+                };
+                
+            } catch (err) {
+                console.error('处理Answer失败:', err);
+                statusA.textContent = `状态: 处理Answer失败 - ${err.message}`;
+                statusA.className = 'status error';
+            }
+        }
+    </script>
+</body>
+</html>

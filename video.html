@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Simple WebRTC Viewer</title>
+  <style>
+    video { width: 45%; margin: 10px; background: #000; }
+    #controls { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Simple WebRTC Viewer</h2>
+  <video id="localVideo" autoplay muted playsinline></video>
+  <div id="localUsername" style="text-align:center; font-weight:bold;"></div>
+  <video id="remoteVideo1" autoplay playsinline></video>
+  <div id="remoteUsername1" style="text-align:center; font-weight:bold;"></div>
+  <video id="remoteVideo2" autoplay playsinline></video>
+  <div id="remoteUsername2" style="text-align:center; font-weight:bold;"></div>
+  <div id="controls">
+    <button id="startBtn">Start Video</button>
+    <button id="testInsertBtn">Test Insert Signal</button>
+    <button id="insertSignalBtn">插入测试信令</button>
+  </div>
+  <pre id="insertResult" style="white-space: pre-wrap; margin-top:10px;"></pre>
+  <table border="1" cellspacing="0" cellpadding="5" style="margin-top: 15px; width: 100%; max-width: 600px;">
+    <thead>
+      <tr>
+        <th>用户名</th>
+        <th>是否在线</th>
+        <th>是否开启摄像头</th>
+        <th>是否发送信令</th>
+        <th>是否接收信令</th>
+        <th>是否建立连接</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>user-1234</td>
+        <td id="online-user-1234">否</td>
+        <td id="camera-user-1234">否</td>
+        <td id="sentSignal-user-1234">否</td>
+        <td id="recvSignal-user-1234">否</td>
+        <td id="connected-user-1234">否</td>
+      </tr>
+      <tr>
+        <td>user-5678</td>
+        <td id="online-user-5678">否</td>
+        <td id="camera-user-5678">否</td>
+        <td id="sentSignal-user-5678">否</td>
+        <td id="recvSignal-user-5678">否</td>
+        <td id="connected-user-5678">否</td>
+      </tr>
+    </tbody>
+  </table>
+  <div id="connectionStatus" style="margin-top:10px; font-weight:bold;">Status: Disconnected</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    function getUsernameFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('username');
+      if (name && name.trim() !== '') {
+        return name.trim();
+      }
+      return 'user-' + Math.floor(Math.random() * 10000);
+    }
+
+    const username = getUsernameFromUrl();
+    let peer;
+    let localStream;
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo1 = document.getElementById('remoteVideo1');
+    const remoteVideo2 = document.getElementById('remoteVideo2');
+    const startBtn = document.getElementById('startBtn');
+
+    const localUsernameDiv = document.getElementById('localUsername');
+    const remoteUsername1Div = document.getElementById('remoteUsername1');
+    const remoteUsername2Div = document.getElementById('remoteUsername2');
+    const connectionStatusDiv = document.getElementById('connectionStatus');
+
+    localUsernameDiv.textContent = `Local Video (${username})`;
+
+    if (username === 'user-1234') {
+      remoteUsername1Div.textContent = 'Remote Video (user-5678)';
+      remoteUsername2Div.textContent = '';
+    } else if (username === 'user-5678') {
+      remoteUsername1Div.textContent = '';
+      remoteUsername2Div.textContent = 'Remote Video (user-1234)';
+    }
+
+    const status = {
+      'user-1234': { online: false, cameraOn: false, sentSignal: false, receivedSignal: false, connected: false },
+      'user-5678': { online: false, cameraOn: false, sentSignal: false, receivedSignal: false, connected: false }
+    };
+
+    function updateStatusUI() {
+      for (const user in status) {
+        document.getElementById(`online-${user}`).textContent = status[user].online ? '是' : '否';
+        document.getElementById(`camera-${user}`).textContent = status[user].cameraOn ? '是' : '否';
+        document.getElementById(`sentSignal-${user}`).textContent = status[user].sentSignal ? '是' : '否';
+        document.getElementById(`recvSignal-${user}`).textContent = status[user].receivedSignal ? '是' : '否';
+        document.getElementById(`connected-${user}`).textContent = status[user].connected ? '是' : '否';
+      }
+    }
+
+    // --- Supabase Presence 集成 ---
+    const presenceChannel = supabase.channel('webrtc-presence', {
+      config: {
+        presence: {
+          key: username
+        }
+      }
+    });
+
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+      const presenceState = presenceChannel.presenceState();
+      const onlineUsers = Object.keys(presenceState);
+      console.log('🧭 Presence sync - online users:', onlineUsers);
+      // 更新 status.online
+      for (const user of ['user-1234', 'user-5678']) {
+        status[user].online = onlineUsers.includes(user);
+      }
+      updateStatusUI();
+    });
+
+    presenceChannel.on('broadcast', { event: 'status' }, payload => {
+      const { user, field, value } = payload.payload;
+      if (status[user]) {
+        status[user][field] = value;
+        updateStatusUI();
+      }
+    });
+
+    function broadcastStatus(field, value) {
+      presenceChannel.send({
+        type: 'broadcast',
+        event: 'status',
+        payload: {
+          user: username,
+          field,
+          value
+        }
+      });
+    }
+
+    presenceChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await presenceChannel.track({});
+      }
+    });
+
+    async function setupPeer(initiator) {
+      if (peer) return; // 防止重复创建
+
+      peer = new SimplePeer({ initiator, trickle: false, stream: initiator ? localStream : undefined });
+
+      peer.on('signal', async data => {
+        console.log('📡 Sending signal:', data);
+        const target = username === 'user-1234' ? 'user-5678' : 'user-1234';
+        peer.otherName = target;
+        status[username].sentSignal = true;
+        broadcastStatus('sentSignal', true);
+        updateStatusUI();
+        // type 优先用 data.type，否则默认为 'candidate'
+        const signalType = data && data.type ? data.type : 'candidate';
+        await supabase.from('signals').insert([{ from: username, to: target, type: signalType, data }]).select();
+      });
+
+      peer.on('stream', stream => {
+        console.log('🎥 Received remote stream');
+        if (username === 'user-1234') {
+          remoteVideo1.srcObject = stream;
+        } else if (username === 'user-5678') {
+          remoteVideo2.srcObject = stream;
+        }
+      });
+
+      peer.on('connect', () => {
+        console.log('✅ Peer connection established');
+        connectionStatusDiv.textContent = 'Status: Connected';
+        status[username].connected = true;
+        broadcastStatus('connected', true);
+        updateStatusUI();
+      });
+
+      peer.on('close', () => {
+        console.log('❌ Peer connection closed');
+        connectionStatusDiv.textContent = 'Status: Disconnected';
+        status[username].connected = false;
+        updateStatusUI();
+      });
+
+      peer.on('error', err => {
+        console.error('❗ WebRTC error:', err);
+        connectionStatusDiv.textContent = `Status: Error - ${err.message}`;
+      });
+
+      peer.on('error', err => {
+        console.error('WebRTC error:', err);
+      });
+    }
+
+    startBtn.onclick = async () => {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = localStream;
+        console.log('📷 Got local video stream');
+        status[username].cameraOn = true;
+        broadcastStatus('cameraOn', true);
+        updateStatusUI();
+        await setupPeer(true); // 发起者
+      } catch (e) {
+        console.error('Failed to access camera', e);
+        alert('Failed to access camera');
+      }
+    };
+
+supabase.channel('signals-listener')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signals', filter: `to=eq.${username}` }, async payload => {
+    console.log('📨 Received signal payload:', payload);
+    const { from, to, type, data, created_at } = payload.new;
+    console.group('🔔 Signal Detail');
+    console.log('From:', from);
+    console.log('To:', to);
+    console.log('Type:', type);
+    console.log('Created at:', created_at);
+    console.log('Data:', data);
+    console.groupEnd();
+
+    updateStatusUI();
+
+    if (!peer) {
+      console.log('⚙️ Peer 不存在，开始异步创建...');
+      await setupPeer(false);
+      console.log('⚙️ Peer 创建完成');
+    }
+
+    if (peer) {
+      peer.otherName = from;
+      console.log('🔄 Calling peer.signal() with data:', data);
+      try {
+        peer.signal(data);
+        status[username].receivedSignal = true;
+        broadcastStatus('receivedSignal', true);
+        updateStatusUI();
+        console.log('✅ peer.signal() 调用成功');
+      } catch (err) {
+        console.error('❗ peer.signal() 调用异常:', err);
+      }
+    }
+
+    console.log('📝 当前状态对象:', JSON.stringify(status, null, 2));
+  })
+  .subscribe(status => {
+    console.log('📡 signals-listener subscribe status:', status);
+  });
+
+    document.getElementById('testInsertBtn').onclick = async () => {
+      const { data, error } = await supabase
+        .from('signals')
+        .insert([
+          { from: 'test-user', to: 'test-user2', type: 'offer', data: { test: 'test signal data' } }
+        ])
+        .select();
+      if (error) {
+        console.error('Insert error:', error);
+      } else {
+        console.log('Insert success:', data);
+      }
+    };
+
+    // 插入测试信令按钮功能
+    const insertSignalBtn = document.getElementById('insertSignalBtn');
+    const insertResultPre = document.getElementById('insertResult');
+
+    insertSignalBtn.onclick = async () => {
+      const testSignal = {
+        from: 'test-user',
+        to: 'test-user2',
+        type: 'offer',
+        data: {
+          sdp: 'v=0\\r\\no=- 123456789 2 IN IP4 127.0.0.1\\r\\ns=-\\r\\nt=0 0\\r\\n...',
+        }
+      };
+
+      try {
+        const { data, error } = await supabase
+          .from('signals')
+          .insert([testSignal])
+          .select();
+
+        if (error) {
+          insertResultPre.textContent = '插入错误: ' + JSON.stringify(error);
+          console.error('Insert error:', error);
+        } else {
+          insertResultPre.textContent = '插入成功: ' + JSON.stringify(data, null, 2);
+          console.log('Insert success:', data);
+        }
+      } catch (e) {
+        insertResultPre.textContent = '异常错误: ' + e.message;
+        console.error('Exception:', e);
+      }
+    };
+  </script>
+</body>
+</html>

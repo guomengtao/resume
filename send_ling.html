@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>WebRTC Signal Debugger</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    textarea { width: 100%; height: 150px; }
+    pre { background: #eee; padding: 10px; }
+  </style>
+</head>
+<body>
+  <h2>WebRTC 手动信令调试器</h2>
+  <label>
+    <input type="radio" name="role" value="initiator" checked /> 发起人
+  </label>
+  <label>
+    <input type="radio" name="role" value="responder" /> 应答人
+  </label>
+
+  <div style="margin-top:10px;">
+    <button id="startBtn">开始创建 Peer</button>
+  </div>
+
+  <h3>本地生成信令 (需要发给对方)</h3>
+  <textarea id="localSignal" readonly></textarea>
+
+  <!-- 已移除手动输入信令部分，改为 localStorage 自动同步 -->
+
+  <h3>控制台日志</h3>
+  <pre id="log"></pre>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 信令通道 key
+    const SIGNAL_ID = 'peer-signal';
+    let peer = null;
+
+    function log(message) {
+      console.log(message);
+      const logElem = document.getElementById('log');
+      logElem.textContent += message + '\n';
+    }
+
+    async function uploadToSupabase(signal) {
+      let parsedSignal;
+      try {
+        parsedSignal = JSON.parse(signal);
+      } catch (e) {
+        log("❌ 信令 JSON 解析失败");
+        return;
+      }
+
+      const record = {
+        id: SIGNAL_ID,            // 固定 id
+        from: 'userA',            // 发送方 ID，示例写死
+        to: 'userB',              // 接收方 ID，示例写死
+        type: parsedSignal.type || 'unknown',
+        data: parsedSignal,
+        signal: signal
+      };
+
+      const { error } = await supabase
+        .from('signals')
+        .upsert(record, { onConflict: ['id'] });
+
+      if (error) log("❌ Supabase 写入失败: " + error.message);
+      else log("✅ Supabase 信令写入成功");
+    }
+
+    async function fetchFromSupabase() {
+      const { data, error } = await supabase
+        .from('signals')
+        .select('signal')
+        .eq('id', SIGNAL_ID)
+        .single();
+      if (error) log("❌ Supabase 读取失败: " + error.message);
+      return { data, error };
+    }
+
+    document.getElementById('startBtn').onclick = async () => {
+      const role = document.querySelector('input[name="role"]:checked').value;
+      log("🎯 角色选择: " + role);
+
+      peer = new SimplePeer({ initiator: role === 'initiator', trickle: false });
+
+      peer.on('signal', data => {
+        const encoded = JSON.stringify(data);
+        log("📡 本地生成信令并写入 Supabase:");
+        log(encoded);
+        document.getElementById('localSignal').value = encoded;
+        uploadToSupabase(encoded);
+      });
+
+      peer.on('connect', () => {
+        log("✅ Peer 连接成功！");
+      });
+
+      peer.on('error', err => {
+        log("❌ 错误: " + err.message);
+      });
+
+      peer.on('data', data => {
+        log("📥 收到数据: " + data);
+      });
+
+      // 如果是 responder，立即读取 Supabase 看是否已有 offer
+      if (role === 'responder') {
+        const { data, error } = await fetchFromSupabase();
+        const incoming = data?.signal;
+        if (incoming) {
+          try {
+            const parsed = JSON.parse(incoming);
+            log("📥 检测到 Supabase 已存在对方 offer，立即 signal:");
+            log(JSON.stringify(parsed, null, 2));
+            peer.signal(parsed);
+          } catch (e) {
+            log("❌ JSON 解析错误");
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+</body>
+</html>
