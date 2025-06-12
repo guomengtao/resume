@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PeerJS Video Chat</title>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; margin-bottom: 10px; }
+    #peer-id, #connect-to { width: 200px; }
+  </style>
+</head>
+<body>
+  <h2>PeerJS Video Chat</h2>
+  <video id="local-video" autoplay playsinline muted style="width: 45%;"></video>
+  <video id="remote-video" autoplay playsinline style="width: 45%;"></video>
+  <p>Your Peer ID: <span id="my-id">...</span></p>
+
+  <input type="text" id="connect-to" placeholder="Peer ID to connect">
+  <button id="connect-btn">Connect</button>
+
+  <div id="log"></div>
+
+  <script>
+    const peer = new Peer();
+
+    const logEl = document.getElementById('log');
+    const connectToInput = document.getElementById('connect-to');
+    const connectBtn = document.getElementById('connect-btn');
+    const myIdEl = document.getElementById('my-id');
+
+    peer.on('open', id => {
+      myIdEl.textContent = id;
+    });
+
+    peer.on('connection', connection => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        document.getElementById('local-video').srcObject = stream;
+        const call = peer.call(connection.peer, stream);
+        call.on('stream', remoteStream => {
+          document.getElementById('remote-video').srcObject = remoteStream;
+        });
+      });
+    });
+
+    connectBtn.onclick = () => {
+      const peerId = connectToInput.value;
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        document.getElementById('local-video').srcObject = stream;
+        const call = peer.call(peerId, stream);
+        call.on('stream', remoteStream => {
+          document.getElementById('remote-video').srcObject = remoteStream;
+        });
+      });
+    };
+
+    peer.on('call', call => {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        document.getElementById('local-video').srcObject = stream;
+        call.answer(stream);
+        call.on('stream', remoteStream => {
+          document.getElementById('remote-video').srcObject = remoteStream;
+        });
+      });
+    });
+  </script>
+</body>
+</html>
