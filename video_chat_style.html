@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chatroom Demo v1.6.4</title>
+  <title>Chatroom Demo v1.6.6</title>
   <style>
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -238,10 +238,11 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
 </head>
 <body>
   <div id="main">
-    <h1>Chatroom Demo Jack And Tom!v1.6.4</h1>
+    <h1>Chatroom Demo Jack And Tom!v1.6.6</h1>
     <div id="online-users">Online users (0):</div>
     <div id="chat"></div>
     <div id="input-row">
@@ -250,12 +251,12 @@
       <input type="text" id="input" placeholder="Enter message" />
       <button id="send">Send</button>
     </div>
-    <a href="video_chat.html" target="_blank" style="color: #4caf50; font-weight: bold; font-size: 14px; text-decoration: none;">
-        🎥 Go to video chat page ... 
-      </a>
+    <button id="startVideo">Start Video</button>
   </div>
-   
-  
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 12px;">
+    <video id="localVideo" autoplay muted playsinline style="width: 300px; border-radius: 8px; border: 1px solid #ccc;"></video>
+    <video id="remoteVideo" autoplay playsinline style="width: 300px; border-radius: 8px; border: 1px solid #ccc;"></video>
+  </div>
   <div id="sidebar">
     <h2>User List</h2>
     <div id="user-list">Loading...</div>
@@ -383,7 +384,6 @@
     async function init() {
       const supabaseUrl = 'https://vbpbytebpaihpauwcryn.supabase.co';
       const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicGJ5dGVicGFpaHBhdXdjcnluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0MjgzMzcsImV4cCI6MjA2NTAwNDMzN30.fW-XLBBgtUHtMWM_DYIowqz39SZpenkmgJfE_RZuc74';
-
       const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
       const randomNicknames = [
@@ -471,6 +471,7 @@
       });
 
       await presenceChannel.subscribe();
+      console.log('✅ Subscribed to broadcast channel');
 
       await presenceChannel.track({ username, joined_at: Date.now() }, { key: presenceKey });
 
@@ -543,11 +544,107 @@
       });
 
       send.disabled = true;
+
+      // --- WebRTC 视频通话部分（使用 Supabase 数据库 signals 表进行信令） ---
+      let localStream = null;
+      let peer = null;
+      const localVideo = document.getElementById('localVideo');
+      const remoteVideo = document.getElementById('remoteVideo');
+      let isVideoSender = false;
+
+      async function setupMediaAndConnection() {
+        // 所有人都订阅信令
+        supabaseClient
+          .channel('public:signals')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'signals',
+              filter: `to=eq.${username}`
+            },
+            payload => {
+              const { from, type, data } = payload.new;
+              console.log(`📨 DB Signal from "${from}" (type=${type})`, data);
+              peer && peer.signal(data);
+            }
+          )
+          .subscribe();
+        // 每个人都准备好 peer 实例以接收信令
+        await startWebRTC(false); // 非 initiator 模式，准备好 peer 实例以接收信令
+      }
+
+      // WebRTC 连接函数（仅在点击按钮时调用 initiator 方式）
+      async function startWebRTC(isInitiator) {
+        if (peer) return; // 防止重复创建
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localVideo.srcObject = localStream;
+          isVideoSender = true;
+          console.log('📷 Got local video stream');
+        } catch (err) {
+          console.warn('❌ Failed to get video: viewing only mode');
+          localVideo.style.display = 'none';
+          const tip = document.createElement('div');
+          tip.style.color = '#f44336';
+          tip.style.marginTop = '6px';
+          tip.textContent = '⚠️ 你当前无摄像头，正在观看对方视频';
+          localVideo.parentNode.insertBefore(tip, localVideo.nextSibling);
+        }
+
+        peer = new SimplePeer({
+          initiator: isInitiator,
+          trickle: false,
+          stream: isVideoSender ? localStream : undefined,
+        });
+
+        peer.on('signal', async signalData => {
+          const type = signalData?.type || (signalData?.candidate ? 'candidate' : 'unknown');
+          console.log(`📡 DB Sending signal: type=${type}`, signalData);
+          // 查找 presence 表中除自己外的第一个在线用户
+          const { data: userRows } = await supabaseClient
+            .from('presence')
+            .select('username')
+            .neq('username', username)
+            .limit(1);
+
+          const target = userRows?.[0]?.username;
+          if (target) {
+            await supabaseClient.from('signals').insert([
+              {
+                from: username,
+                to: target,
+                type,
+                data: signalData
+              }
+            ]);
+          } else {
+            console.warn('❌ No other user found to send signal to.');
+          }
+        });
+
+        peer.on('stream', stream => {
+          console.log('🎥 Received remote stream');
+          remoteVideo.srcObject = stream;
+        });
+
+        peer.on('error', err => {
+          console.error('WebRTC error:', err);
+        });
+      }
+
+      // 绑定 Start Video 按钮（全局，setupMediaAndConnection 外）
+      document.getElementById('startVideo').addEventListener('click', async () => {
+        if (peer) return; // 防止重复点击
+        await startWebRTC(true); // initiator = true
+      });
+
+      await setupMediaAndConnection();
     }
 
     init();
-  </script>
-</div>
 
+  </script>
 </body>
 </html>
