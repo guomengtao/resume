@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PeerJS Video Chat</title>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #log { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: scroll; margin-bottom: 10px; }
+    #peer-id, #connect-to { width: 200px; }
+  </style>
+</head>
+<body>
+  <h2>PeerJS Video Chat</h2>
+  <video id="local-video" autoplay playsinline muted style="width: 45%;"></video>
+  <video id="remote-video" autoplay playsinline style="width: 45%;"></video>
+  <p>Your Peer ID: <span id="my-id">...</span></p>
+
+  <input type="text" id="connect-to" placeholder="Peer ID to connect" disabled>
+  <button id="connect-btn">开始寻找在线的用户进行连接</button>
+
+  <div id="log"></div>
+
+  <script>
+    // 自动分配 agent01~agent10 的 PeerJS ID
+    const candidateIds = Array.from({length: 10}, (_, i) => `agent${String(i+1).padStart(2, '0')}`);
+    let peer;
+    let localStream;
+
+    const logEl = document.getElementById('log');
+    const connectToInput = document.getElementById('connect-to');
+    const connectBtn = document.getElementById('connect-btn');
+    const myIdEl = document.getElementById('my-id');
+
+    function log(msg) {
+      logEl.innerHTML += msg + '<br>';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function tryNextId(index = 0) {
+      if (index >= candidateIds.length) {
+        log('❌ 所有 ID 都被占用了');
+        return;
+      }
+
+      const tryId = candidateIds[index];
+      const testPeer = new Peer(tryId);
+
+      let handled = false; // 防止多次调用
+
+      testPeer.on('open', id => {
+        if (handled) return;
+        handled = true;
+
+        log(`✅ 成功注册 ID: ${id}`);
+        myIdEl.textContent = id;
+        peer = testPeer;
+        setupPeerEvents();
+        // 注册成功，停止后续尝试
+      });
+
+      testPeer.on('error', err => {
+        if (handled) return;
+        handled = true;
+
+        log(`⛔️ ID ${tryId} 被占用，无法注册`);
+        testPeer.destroy();  // 关闭此 Peer 实例
+        tryNextId(index + 1); // 尝试下一个 ID
+      });
+    }
+
+    function setupPeerEvents() {
+      peer.on('connection', connection => {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+          localStream = stream;
+          document.getElementById('local-video').srcObject = stream;
+          const call = peer.call(connection.peer, stream);
+          call.on('stream', remoteStream => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        });
+      });
+
+      peer.on('call', call => {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+          localStream = stream;
+          document.getElementById('local-video').srcObject = stream;
+          call.answer(stream);
+          call.on('stream', remoteStream => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        });
+      });
+
+      connectBtn.onclick = async () => {
+        const availableIds = candidateIds.filter(id => id !== peer.id);
+        for (const peerId of availableIds) {
+          try {
+            const conn = await new Promise((resolve, reject) => {
+              const tempConn = peer.connect(peerId);
+              tempConn.on('open', () => resolve(tempConn));
+              tempConn.on('error', () => reject());
+              setTimeout(() => reject(), 1000); // Timeout
+            });
+
+            log(`🔗 成功连接到 ${peerId}，开始视频通话`);
+
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+              localStream = stream;
+              document.getElementById('local-video').srcObject = stream;
+              const call = peer.call(peerId, stream);
+              call.on('stream', remoteStream => {
+                document.getElementById('remote-video').srcObject = remoteStream;
+              });
+            });
+
+            break; // Stop on successful connection
+          } catch {
+            log(`❌ 无法连接 ${peerId}，尝试下一个`);
+          }
+        }
+      };
+    }
+
+    tryNextId(); // 启动自动分配 ID
+  </script>
+</body>
+</html>
