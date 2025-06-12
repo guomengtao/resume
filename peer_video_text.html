@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PeerJS Video Chat</title>
+  <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 10px;
+      margin: 0;
+      background-color: #fafafa;
+    }
+    #log {
+      width: 200px;
+      height: 60px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: auto;
+      margin-left: 10px;
+      font-size: 12px;
+      float: none;
+      display: inline-block;
+      vertical-align: top;
+      box-sizing: border-box;
+    }
+    #peer-id, #connect-to { width: 200px; }
+
+    /* WeChat-like chat styles */
+    #chat-window {
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: scroll;
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f5f5f5;
+      border-radius: 5px;
+    }
+
+    #chat-window div {
+      margin: 5px 0;
+      padding: 8px 12px;
+      border-radius: 18px;
+      max-width: 70%;
+      display: inline-block;
+      clear: both;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    #chat-window .sent {
+      background-color: #ffffff;
+      float: right;
+      text-align: right;
+    }
+    #chat-window .received {
+      background-color: #dcf8c6;
+      float: left;
+      text-align: left;
+    }
+    video {
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    h2, h3 {
+      margin: 10px 0 5px;
+    }
+
+    input, button {
+      outline: none;
+    }
+
+    #chat-input {
+      width: calc(100% - 90px);
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      margin-right: 5px;
+      box-sizing: border-box;
+    }
+
+    #send-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      background-color: #09bb07;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    #send-btn:hover {
+      background-color: #0fa50f;
+    }
+
+    #connect-btn {
+      padding: 12px 24px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      transition: background-color 0.3s;
+    }
+
+    #connect-btn:hover {
+      background-color: #0056b3;
+    }
+
+    #chat-window div.timestamp {
+      text-align: center;
+      color: #999;
+      font-size: 12px;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>PeerJS Video Chat</h2>
+  <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+    <video id="local-video" autoplay playsinline muted style="width: 45%; background-color: black; height: 240px;"></video>
+    <video id="remote-video" autoplay playsinline style="width: 45%; background-color: black; height: 240px;"></video>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+    <span>Your Peer ID:</span>
+    <span id="my-id" style="font-weight: bold;"></span>
+    <input type="text" id="connect-to" placeholder="Peer ID to connect" disabled>
+    <button id="connect-btn">Start Matching</button>
+    <span id="connection-status" style="margin-left:10px; font-weight:bold;"></span>
+  </div>
+
+  <h3>Chat</h3>
+  <div id="chat-window"></div>
+  <div style="display: flex; align-items: flex-start;">
+    <input type="text" id="chat-input" placeholder="Type a message...">
+    <button id="send-btn">Send</button>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    // 自动分配 agent01~agent10 的 PeerJS ID
+    const candidateIds = Array.from({length: 10}, (_, i) => `agent${String(i+1).padStart(2, '0')}`);
+    let peer;
+    let dataConnection;
+    let localStream;
+
+    const logEl = document.getElementById('log');
+    const connectToInput = document.getElementById('connect-to');
+    const connectBtn = document.getElementById('connect-btn');
+    const myIdEl = document.getElementById('my-id');
+    const chatWindow = document.getElementById('chat-window');
+
+    const getMediaStream = async () => {
+      if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      }
+      return localStream;
+    };
+
+    function log(msg) {
+      logEl.innerHTML += msg + '<br>';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    let lastMessageTime = 0;
+    function addMessage(text, type) {
+      const now = Date.now();
+      const threeMinutes = 3 * 60 * 1000;
+
+      if (now - lastMessageTime > threeMinutes) {
+        const timeStr = new Date(now).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'timestamp';
+        timeDiv.textContent = timeStr;
+        chatWindow.appendChild(timeDiv);
+      }
+      lastMessageTime = now;
+
+      const div = document.createElement('div');
+      div.className = (type === 'sent') ? 'sent' : 'received';
+      div.textContent = (type === 'sent' ? '🧑 You: ' : '👤 Partner: ') + text;
+      chatWindow.appendChild(div);
+
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function tryNextId(index = 0) {
+      if (index >= candidateIds.length) {
+        log('❌ 所有 ID 都被占用了');
+        return;
+      }
+
+      const tryId = candidateIds[index];
+      const testPeer = new Peer(tryId);
+
+      let handled = false; // 防止多次调用
+
+      testPeer.on('open', id => {
+        if (handled) return;
+        handled = true;
+
+        log(`✅ 成功注册 ID: ${id}`);
+        myIdEl.textContent = id;
+        peer = testPeer;
+        setupPeerEvents();
+        // 注册成功，停止后续尝试
+      });
+
+      testPeer.on('error', err => {
+        if (handled) return;
+        handled = true;
+
+        log(`⛔️ ID ${tryId} 被占用，无法注册`);
+        testPeer.destroy();  // 关闭此 Peer 实例
+        tryNextId(index + 1); // 尝试下一个 ID
+      });
+    }
+
+    function setupPeerEvents() {
+      peer.on('connection', connection => {
+        dataConnection = connection;
+        dataConnection.on('data', text => {
+          addMessage(text, 'received');
+        });
+        getMediaStream().then(stream => {
+          document.getElementById('local-video').srcObject = stream;
+          const call = peer.call(connection.peer, stream);
+          call.on('stream', remoteStream => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        });
+      });
+
+      peer.on('call', call => {
+        getMediaStream().then(stream => {
+          document.getElementById('local-video').srcObject = stream;
+          call.answer(stream);
+          call.on('stream', remoteStream => {
+            document.getElementById('remote-video').srcObject = remoteStream;
+          });
+        });
+      });
+
+      connectBtn.onclick = async () => {
+        connectBtn.disabled = true;
+        const connectionStatus = document.getElementById('connection-status');
+        connectionStatus.textContent = "Searching...";
+
+        const availableIds = candidateIds.filter(id => id !== peer.id);
+        let connected = false;
+        for (const peerId of availableIds) {
+          connectionStatus.textContent = `Trying to connect to ${peerId}...`;
+          try {
+            const conn = await new Promise((resolve, reject) => {
+              const tempConn = peer.connect(peerId);
+              tempConn.on('open', () => resolve(tempConn));
+              tempConn.on('error', () => reject());
+              setTimeout(() => reject(), 1000);
+            });
+
+            dataConnection = conn;
+            dataConnection.on('data', text => {
+              addMessage(text, 'received');
+            });
+
+            connectionStatus.textContent = `Connected to ${peerId}`;
+            log(`🔗 Connected to ${peerId}, starting video call`);
+
+            getMediaStream().then(stream => {
+              document.getElementById('local-video').srcObject = stream;
+              const call = peer.call(peerId, stream);
+              call.on('stream', remoteStream => {
+                document.getElementById('remote-video').srcObject = remoteStream;
+              });
+            });
+
+            connected = true;
+            break;
+          } catch {
+            log(`❌ Unable to connect to ${peerId}, trying next`);
+          }
+        }
+
+        if (!connected) {
+          connectionStatus.textContent = "No available peers found";
+        }
+        connectBtn.disabled = false;
+      };
+    }
+
+    document.getElementById('send-btn').addEventListener('click', () => {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      if (message && dataConnection?.open) {
+        dataConnection.send(message);
+        addMessage(message, 'sent');
+        input.value = '';
+      }
+    });
+
+    document.getElementById('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        document.getElementById('send-btn').click();
+      }
+    });
+
+    tryNextId(); // 启动自动分配 ID
+  </script>
+</body>
+</html>
