@@ -38,11 +38,17 @@
           border
           highlight-current-row
           style="width: 100%; border-radius: 6px; overflow: hidden;"
-          :default-sort="{ prop: 'name', order: 'ascending' }"
+          :default-sort="{ prop: 'full_name', order: 'ascending' }"
           @sort-change="handleSortChange"
         >
           <el-table-column
-            prop="name"
+            type="index"
+            label="序号"
+            width="60"
+            align="center"
+          />
+          <el-table-column
+            prop="full_name"
             label="姓名"
             sortable
             min-width="140"
@@ -53,6 +59,36 @@
             label="电话"
             sortable
             min-width="160"
+            align="center"
+          />
+          <el-table-column
+            prop="email"
+            label="邮箱"
+            min-width="180"
+            align="center"
+          />
+          <el-table-column
+            prop="company_name"
+            label="公司"
+            min-width="180"
+            align="center"
+          />
+          <el-table-column
+            prop="province"
+            label="省份"
+            min-width="100"
+            align="center"
+          />
+          <el-table-column
+            prop="city"
+            label="城市"
+            min-width="100"
+            align="center"
+          />
+          <el-table-column
+            prop="status"
+            label="状态"
+            min-width="100"
             align="center"
           />
           <el-table-column
@@ -103,6 +139,7 @@
 </template>
 
 <script>
+import { apiRequest } from '../api/apiClient';
 
 export default {
   name: "Customers",
@@ -110,7 +147,7 @@ export default {
     return {
       customers: [],
       currentPage: 1,
-      pageSize: 5,
+      pageSize: 20,
       sortProp: 'name',
       sortOrder: 'ascending',
     };
@@ -137,15 +174,13 @@ export default {
     this.loadCustomers();
   },
   methods: {
-    loadCustomers() {
-      fetch("http://localhost:8080/customers")
-        .then((res) => res.json())
-        .then((data) => {
-          this.customers = data;
-        })
-        .catch((err) => {
-          console.error("获取客户列表失败:", err);
-        });
+    async loadCustomers() {
+      try {
+        const data = await apiRequest('/customers', 'GET');
+        this.customers = data;
+      } catch (err) {
+        console.error("获取客户列表失败:", err);
+      }
     },
     viewCustomer(customer) {
       console.log("查看", customer);
