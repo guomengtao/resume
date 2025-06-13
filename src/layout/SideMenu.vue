@@ -9,32 +9,33 @@
       unique-opened
       style="height: 100vh; margin: 0; padding: 0;"
     >
-      <el-menu-item index="/dashboard">
+      <el-menu-item index="/">
         <el-icon><House /></el-icon>
         <span>首页</span>
       </el-menu-item>
 
-      <el-menu-item index="/admin">
+      <el-menu-item index="/dashboard">
         <el-icon><User /></el-icon>
-        <span>管理员管理</span>
+        <span>数据看板</span>
+      </el-menu-item>
+
+   
+      <el-menu-item index="/leads">
+        <el-icon><User /></el-icon>
+        <span>销售线索管理</span>
       </el-menu-item>
 
       <el-menu-item index="/customers">
         <el-icon><User /></el-icon>
         <span>客户管理</span>
       </el-menu-item>
-      <el-menu-item index="/leads">
-        <el-icon><User /></el-icon>
-        <span>销售线索管理</span>
-      </el-menu-item>
-      <el-menu-item index="/opportunities">
-        <el-icon><User /></el-icon>
-        <span>销售机会管理</span>
-      </el-menu-item>
+
+
       <el-menu-item index="/orders">
         <el-icon><User /></el-icon>
         <span>销售订单管理</span>
       </el-menu-item>
+      
       <el-menu-item index="/funnel">
         <el-icon><User /></el-icon>
         <span>销售漏斗分析</span>
