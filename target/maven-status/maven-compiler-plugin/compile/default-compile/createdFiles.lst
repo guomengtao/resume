@@ -1,7 +1,0 @@
-com/example/demo/HelloController.class
-com/example/demo/DemoApplication.class
-com/example/demo/entity/Customer.class
-com/example/demo/config/CorsConfig$1.class
-com/example/demo/config/CorsConfig.class
-com/example/demo/repository/CustomerRepository.class
-com/example/demo/controller/CustomerController.class
