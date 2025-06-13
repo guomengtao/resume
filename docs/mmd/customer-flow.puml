@@ -1,0 +1,8 @@
+@startuml
+start
+:前端请求 /customers;
+:控制器处理请求;
+:调用数据库查询或保存;
+:返回结果给前端;
+stop
+@enduml
