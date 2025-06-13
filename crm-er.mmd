@@ -1,0 +1,41 @@
+erDiagram
+    客户 ||--o{ 线索 : 包含
+    线索 ||--o{ 跟进记录 : 跟进
+    线索 ||--|{ 订单 : 转化为
+    客户 ||--o{ 订单 : 下单
+
+    客户 {
+        UUID 客户ID
+        VARCHAR 姓名
+        VARCHAR 手机号
+        VARCHAR 邮箱
+        VARCHAR 公司名称
+        CHAR 客户等级
+    }
+
+    线索 {
+        UUID 线索ID
+        UUID 客户ID
+        VARCHAR 来源
+        VARCHAR 当前状态
+        DATETIME 创建时间
+    }
+
+    跟进记录 {
+        UUID 跟进ID
+        UUID 线索ID
+        TEXT 跟进内容
+        DATE 跟进时间
+        VARCHAR 跟进方式
+        VARCHAR 跟进人
+    }
+
+    订单 {
+        UUID 订单ID
+        UUID 客户ID
+        UUID 线索ID
+        DECIMAL 金额
+        DATE 下单时间
+        VARCHAR 状态
+        TEXT 备注
+    }

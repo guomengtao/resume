@@ -1,11 +1,15 @@
 // /src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router';
-import Home from '../views/Home.vue';
-import Customers from '../views/Customers.vue';
+  
+
 
 const routes = [
-  { path: '/', component: Home },
-  { path: '/customers', component: Customers },
+  { path: '/', component: () => import('../views/Home.vue') },
+  { path: '/customers', component: () => import('../views/Customers.vue') },
+  { path: '/customers/add', component: () => import('../views/CustomerAddPage.vue') },
+  { path: '/login', component: () => import('../views/Login.vue') },
+  { path: '/leads', component: () => import('../views/LeadsList.vue') },
+  { path: '/leads/add', component: () => import('../views/LeadsAdd.vue') }
 ];
 
 export default createRouter({
