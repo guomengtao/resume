@@ -15,13 +15,13 @@
       </el-menu-item>
 
       <el-menu-item index="/dashboard">
-        <el-icon><User /></el-icon>
+        <el-icon><DataAnalysis /></el-icon>
         <span>数据看板</span>
       </el-menu-item>
 
    
       <el-menu-item index="/leads">
-        <el-icon><User /></el-icon>
+        <el-icon><Monitor /></el-icon>
         <span>销售线索管理</span>
       </el-menu-item>
 
@@ -29,19 +29,17 @@
         <el-icon><User /></el-icon>
         <span>客户管理</span>
       </el-menu-item>
-
-
+      
       <el-menu-item index="/orders">
-        <el-icon><User /></el-icon>
+        <el-icon><Tickets /></el-icon>
         <span>销售订单管理</span>
       </el-menu-item>
-      
       <el-menu-item index="/funnel">
-        <el-icon><User /></el-icon>
+        <el-icon><Filter /></el-icon>
         <span>销售漏斗分析</span>
       </el-menu-item>
       <el-menu-item index="/reports">
-        <el-icon><User /></el-icon>
+        <el-icon><DataBoard /></el-icon>
         <span>销售报表生成</span>
       </el-menu-item>
     </el-menu>
@@ -52,7 +50,8 @@
 import { ref } from 'vue';
 import { useRoute } from "vue-router";
 import { ElIcon } from 'element-plus';
-import { House, User } from '@element-plus/icons-vue';
+// import { House, User } from '@element-plus/icons-vue';
+import { House, User, Monitor, DataBoard, Filter, DataAnalysis, Tickets } from '@element-plus/icons-vue';
 
 const route = useRoute();
 const active = route.path;
