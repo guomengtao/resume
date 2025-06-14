@@ -1,10 +1,7 @@
 <template>
   <el-container style="padding: 24px; background: #fafafa; min-height: 100vh;">
     <el-main>
-      <el-card
-        shadow="hover"
-        style="border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); background: #fff;"
-      >
+      <el-card shadow="hover" style="border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); background: #fff;">
         <template #header>
           <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 20px; color: #303133;">
             <span>客户列表</span>
@@ -24,24 +21,131 @@
           @sort-change="handleSortChange"
         >
           <el-table-column type="index" label="序号" width="60" align="center" />
+          <el-table-column prop="company_name" label="公司名称" min-width="180" align="center" />
           <el-table-column prop="full_name" label="姓名" sortable min-width="140" align="center" />
-          <el-table-column prop="phone" label="电话" sortable min-width="160" align="center" />
-          <el-table-column prop="email" label="邮箱" min-width="180" align="center" />
-          <el-table-column prop="company_name" label="公司" min-width="180" align="center" />
-          <el-table-column prop="province" label="省份" min-width="100" align="center" />
-          <el-table-column prop="city" label="城市" min-width="100" align="center" />
-          <el-table-column prop="status" label="状态" min-width="100" align="center" />
-          <el-table-column prop="last_followup" label="最后跟进" min-width="160" align="center">
+
+          <el-table-column label="合同是否回传" prop="contract_signed" width="130" align="center">
             <template #default="scope">
-              <span>{{ scope.row.last_followup ? scope.row.last_followup.slice(0, 10) : '暂无' }}</span>
+              <el-icon
+                v-if="scope.row.contract_signed"
+                :size="22"
+                color="red"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'contract_signed')"
+              >
+                <Check />
+              </el-icon>
+              <el-icon
+                v-else
+                :size="20"
+                color="#c0c4cc"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'contract_signed')"
+              >
+                <Close />
+              </el-icon>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="300" align="center">
+
+          <el-table-column label="生产完成" prop="production_scheduled" width="80" align="center">
             <template #default="scope">
-              <el-button type="primary" icon="el-icon-view" size="small" @click="viewCustomer(scope.row)">查看</el-button>
-              <el-button type="warning" icon="el-icon-edit" size="small" @click="editCustomer(scope.row)">编辑</el-button>
-              <el-button type="danger" icon="el-icon-delete" size="small" @click="deleteCustomer(scope.row.id)">删除</el-button>
-              <el-button type="success" icon="el-icon-message" size="small" @click="openFollowUpDialog(scope.row)">跟进</el-button>
+              <el-icon
+                v-if="scope.row.production_scheduled"
+                :size="22"
+                color="red"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'production_scheduled')"
+              >
+                <Check />
+              </el-icon>
+              <el-icon
+                v-else
+                :size="20"
+                color="#c0c4cc"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'production_scheduled')"
+              >
+                <Close />
+              </el-icon>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="已发货" prop="shipment_scheduled" width="80" align="center">
+            <template #default="scope">
+              <el-icon
+                v-if="scope.row.shipment_scheduled"
+                :size="22"
+                color="red"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'shipment_scheduled')"
+              >
+                <Check />
+              </el-icon>
+              <el-icon
+                v-else
+                :size="20"
+                color="#c0c4cc"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'shipment_scheduled')"
+              >
+                <Close />
+              </el-icon>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="已收货" prop="received" width="80" align="center">
+            <template #default="scope">
+              <el-icon
+                v-if="scope.row.received"
+                :size="22"
+                color="red"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'received')"
+              >
+                <Check />
+              </el-icon>
+              <el-icon
+                v-else
+                :size="20"
+                color="#c0c4cc"
+                style="cursor: pointer;"
+                @click="toggleStepStatus(scope.row, 'received')"
+              >
+                <Close />
+              </el-icon>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="是否开票" prop="invoice_issued" width="120" align="center">
+            <template #default="scope">
+              <div style="display: flex; align-items: center; justify-content: center;">
+                <el-icon
+                  v-if="scope.row.invoice_issued"
+                  :size="26"
+                  color="red"
+                  style="cursor: pointer; font-weight: 800;"
+                  @click="toggleStepStatus(scope.row, 'invoice_issued')"
+                >
+                  <Check />
+                </el-icon>
+                <el-icon
+                  v-else
+                  :size="24"
+                  color="#c0c4cc"
+                  style="cursor: pointer;"
+                  @click="toggleStepStatus(scope.row, 'invoice_issued')"
+                >
+                  <Close />
+                </el-icon>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="操作" width="260" align="center">
+            <template #default="scope">
+              <el-button type="primary" size="small" @click="viewCustomer(scope.row)">查看</el-button>
+              <el-button type="warning" size="small" @click="editCustomer(scope.row)">编辑</el-button>
+              <el-button type="danger" size="small" @click="deleteCustomer(scope.row.id)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -56,31 +160,21 @@
           @current-change="handlePageChange"
         />
       </el-card>
-
-      <el-dialog v-model="followUpDialogVisible" title="登记跟进" width="500px">
-        <el-form :model="followUpForm" label-width="100px">
-          <el-form-item label="跟进内容">
-            <el-input type="textarea" v-model="followUpForm.contact_result" />
-          </el-form-item>
-          <el-form-item label="下次时间">
-            <el-date-picker v-model="followUpForm.next_follow_up_date" type="date" />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="followUpDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitFollowUp">提交</el-button>
-        </template>
-      </el-dialog>
-
     </el-main>
   </el-container>
 </template>
 
 <script>
 import { apiRequest } from '../api/apiClient';
+import { Check, CircleCheck, Close } from '@element-plus/icons-vue';
 
 export default {
   name: "Customers",
+  components: {
+    Check,
+    CircleCheck,
+    Close,
+  },
   data() {
     return {
       customers: [],
@@ -89,19 +183,18 @@ export default {
       pageSize: 20,
       sortProp: 'full_name',
       sortOrder: 'ascending',
-      followUpDialogVisible: false,
-      followUpForm: {
-        contact_result: '',
-        next_follow_up_date: ''
-      },
-      followUpCustomer: null
+      stepConfig: [
+        { key: 'converted', label: '成交' },
+        { key: 'contract_signed', label: '签约' },
+        { key: 'production_scheduled', label: '生产' },
+        { key: 'shipment_scheduled', label: '发货' },
+        { key: 'received', label: '完成' },
+      ],
     };
   },
   computed: {
     sortedCustomers() {
-      if (!Array.isArray(this.customers) || !this.sortProp) {
-        return this.customers || [];
-      }
+      if (!Array.isArray(this.customers) || !this.sortProp) return this.customers || [];
       const order = this.sortOrder === 'ascending' ? 1 : -1;
       return [...this.customers].sort((a, b) => {
         const valA = a[this.sortProp];
@@ -112,8 +205,7 @@ export default {
     },
     pagedCustomers() {
       const start = (this.currentPage - 1) * this.pageSize;
-      const end = start + this.pageSize;
-      return this.sortedCustomers.slice(start, end);
+      return this.sortedCustomers.slice(start, start + this.pageSize);
     },
   },
   mounted() {
@@ -121,45 +213,47 @@ export default {
   },
   methods: {
     async loadCustomers() {
-  try {
-    const data = await apiRequest('/view_customers_with_latest_followup', 'GET');
-    console.log('API /view_customers_with_latest_followup response:', data);
-    this.customers = Array.isArray(data.items) ? data.items : [];
-    this.total = data.total || 0;
-  } catch (err) {
-    console.error("获取客户列表失败:", err);
-    this.customers = [];
-    this.total = 0;
-  }
-},
-    viewCustomer(customer) {
-      console.log("查看", customer);
+      try {
+        const data = await apiRequest('/view_customers_with_progress', 'GET');
+        this.customers = Array.isArray(data.items) ? data.items : [];
+        this.total = data.total || this.customers.length;
+      } catch (err) {
+        console.error("获取客户列表失败:", err);
+        this.customers = [];
+        this.total = 0;
+      }
     },
-    editCustomer(customer) {
-      console.log("编辑", customer);
+    viewCustomer(row) {
+      console.log("查看", row);
+    },
+    editCustomer(row) {
+      console.log("编辑", row);
     },
     deleteCustomer(id) {
       console.log("删除", id);
     },
-    openFollowUpDialog(customer) {
-      this.followUpCustomer = customer;
-      this.followUpForm = {
-        contact_result: '',
-        next_follow_up_date: ''
-      };
-      this.followUpDialogVisible = true;
-    },
-    async submitFollowUp() {
+    async updateProgress(row) {
       try {
-        await apiRequest('/followups', 'POST', {
-          customer_id: this.followUpCustomer.uuid,
-          contact_result: this.followUpForm.contact_result,
-          next_follow_up_date: this.followUpForm.next_follow_up_date
-        });
-        this.followUpDialogVisible = false;
+        const progressMap = {
+          0: { converted: true, contract_signed: false, production_scheduled: false, shipment_scheduled: false, received: false },
+          1: { converted: true, contract_signed: true, production_scheduled: false, shipment_scheduled: false, received: false },
+          2: { converted: true, contract_signed: true, production_scheduled: true, shipment_scheduled: false, received: false },
+          3: { converted: true, contract_signed: true, production_scheduled: true, shipment_scheduled: true, received: false },
+          4: { converted: true, contract_signed: true, production_scheduled: true, shipment_scheduled: true, received: true },
+        };
+
+        const fieldsToUpdate = progressMap[row.progress_stage] || {};
+        if (!row.uuid) {
+          this.$message.error('客户 UUID 不存在，无法更新');
+          return;
+        }
+
+        await apiRequest(`/customers?uuid=${row.uuid}`, 'PATCH', fieldsToUpdate);
+        this.$message.success('进度已更新');
         this.loadCustomers();
-      } catch (err) {
-        console.error('提交跟进失败:', err);
+      } catch (error) {
+        console.error('更新进度失败:', error);
+        this.$message.error('更新失败');
       }
     },
     handlePageChange(page) {
@@ -174,6 +268,33 @@ export default {
       this.sortOrder = order;
       this.loadCustomers();
     },
+    handleStepClick(stepKey, row) {
+      switch (stepKey) {
+        case 'contract_signed':
+          // Open contract upload dialog
+          this.$message.info('请上传合同');
+          break;
+        case 'shipment_scheduled':
+          // Open logistics form
+          this.$message.info('请填写发货信息');
+          break;
+        default:
+          this.toggleStepStatus(row, stepKey);
+      }
+    },
+    async toggleStepStatus(row, stepKey) {
+      try {
+        const newStatus = !row[stepKey];
+        await apiRequest(`/customers?uuid=${row.uuid}`, 'PATCH', {
+          [stepKey]: newStatus,
+        });
+        this.$message.success('状态已更新');
+        this.loadCustomers();
+      } catch (error) {
+        console.error('更新状态失败:', error);
+        this.$message.error('更新失败');
+      }
+    },
   },
 };
 </script>
@@ -184,8 +305,5 @@ export default {
   color: #606266 !important;
   font-weight: 600;
   user-select: none;
-}
-.el-button-group .el-button {
-  margin-right: 8px;
 }
 </style>
