@@ -6,13 +6,15 @@ const tables = [
   'leads', 'orders', 'followups',
   'view_customers_with_latest_followup',
   'view_leads_with_latest_followup',
-  'view_customers_with_progress'
+  'view_customers_with_progress',
+  'view_orders_with_customer'
 ];
 
 // 通用 Supabase 请求支持分页、排序、模糊过滤
 const useSupabaseRequest = async (path, options = {}) => {
   const url = new URL(path, 'http://localhost');
-  const [_, table] = url.pathname.split('/');
+  const pathSegments = url.pathname.split('/').filter(Boolean);
+  const table = pathSegments[0];
 
   if (!tables.includes(table)) {
     throw new Error('Unsupported path in Supabase request');
@@ -28,11 +30,34 @@ const useSupabaseRequest = async (path, options = {}) => {
     .select('*', { count: 'exact' })
     .order(sortBy, { ascending: sortOrder === 'asc' });
 
-  const filterField = url.searchParams.get('filterField');
-  const filterValue = url.searchParams.get('filterValue');
-  if (filterField && filterValue) {
-    query = query.ilike(filterField, `%${filterValue}%`);
-  }
+  // Multi-field filter support (e.g., ?filter_customer_id=eq.123)
+  url.searchParams.forEach((value, key) => {
+    if (key.startsWith('filter_')) {
+      const field = key.slice('filter_'.length);
+      const dotIndex = value.indexOf('.');
+      if (dotIndex !== -1) {
+        const op = value.slice(0, dotIndex);
+        const val = value.slice(dotIndex + 1);
+        if (typeof query[op] === 'function') {
+          query = query[op](field, val);
+        }
+      }
+    }
+  });
+
+  // 兼容直接使用字段名和运算符，如 ?customer_id=eq.123
+  url.searchParams.forEach((value, key) => {
+    if (!key.startsWith('filter_') && !['page', 'pageSize', 'sortBy', 'sortOrder'].includes(key)) {
+      const dotIndex = value.indexOf('.');
+      if (dotIndex !== -1) {
+        const op = value.slice(0, dotIndex);
+        const val = value.slice(dotIndex + 1);
+        if (typeof query[op] === 'function') {
+          query = query[op](key, val);
+        }
+      }
+    }
+  });
 
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -55,7 +80,8 @@ function sanitizeData(data) {
 // 支持 GET、POST、PATCH 方法
 async function apiRequest(path, method = 'GET', body = null, headers = {}) {
   const url = new URL(path, 'http://localhost');
-  const [_, table] = url.pathname.split('/');
+  const pathSegments = url.pathname.split('/').filter(Boolean);
+  const table = pathSegments[0];
 
   if (!tables.includes(table)) {
     throw new Error('Unsupported path in Supabase request');
@@ -72,9 +98,16 @@ async function apiRequest(path, method = 'GET', body = null, headers = {}) {
     throw new Error(`POST request missing body for path: ${path}`);
   } else if (method === 'PATCH') {
     if (!body) throw new Error('PATCH request missing body');
-    const id = url.searchParams.get('uuid') || url.searchParams.get('id');
+
+    let id = url.searchParams.get('uuid') || url.searchParams.get('id');
+    if (!id) {
+      id = pathSegments[pathSegments.length - 1];
+    }
     if (!id) throw new Error('PATCH request missing id or uuid in path');
-    const key = url.searchParams.get('uuid') ? 'uuid' : 'id';
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const key = uuidRegex.test(id) ? 'uuid' : 'id';
+
     const { data, error } = await supabase.from(table).update(sanitizeData(body)).eq(key, id);
     if (error) throw error;
     return data;

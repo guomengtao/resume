@@ -4,11 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview",
-  "deploy:gh": "gh-pages -d dist -b gh-pages -r https://github.com/guomengtao/web-time-tracker.git"
-},
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy:gh": "gh-pages -d dist -b gh-pages -r https://github.com/guomengtao/web-time-tracker.git"
+  },
   "dependencies": {
     "@faker-js/faker": "^9.8.0",
     "@supabase/supabase-js": "^2.50.0",
