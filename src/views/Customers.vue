@@ -49,7 +49,7 @@
 
           <el-table-column label="操作" width="100" align="center">
             <template #default="scope">
-              <el-button type="primary" size="small" @click="openOrderDialog(scope.row)">下单</el-button>
+              <el-button type="primary" size="small" @click="openOrderDialog(scope.row)">新增订单</el-button>
             </template>
           </el-table-column>
         </el-table>
