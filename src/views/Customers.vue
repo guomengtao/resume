@@ -18,7 +18,13 @@
           @sort-change="handleSortChange"
         >
           <el-table-column type="index" label="序号" width="50" align="center" />
-          <el-table-column prop="company_name" label="公司名称" width="100" align="center" />
+          <el-table-column prop="company_name" label="公司名称" width="100" align="center">
+            <template #default="scope">
+              <span style="cursor: pointer; color: #409EFF;" @click="goToCustomerDetail(scope.row)">
+                {{ scope.row.company_name }}
+              </span>
+            </template>
+          </el-table-column>
           <el-table-column prop="full_name" label="姓名" sortable width="80" align="center" />
           <el-table-column label="累计成交金额" prop="total_order_amount" width="100" align="center">
             <template #default="scope">
@@ -275,6 +281,9 @@ export default {
     },
     goToAddCustomer() {
       this.$router.push('/customers/add');
+    },
+    goToCustomerDetail(row) {
+      this.$router.push(`/customers/${row.uuid}`);
     },
     goToOrders(row) {
       this.$router.push({ path: '/orders', query: { customer_id: row.uuid } });

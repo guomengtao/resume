@@ -15,8 +15,15 @@ const routes = [
   { path: '/funnel', component: () => import('../views/SalesFunnel.vue') },
   { path: '/reports', component: () => import('../views/Reports.vue') },
   { path: '/dashboard', component: () => import('../views/Dashboard.vue') },
-
-
+  {
+    path: '/customers/:uuid',
+    name: 'CustomerDetail',
+    component: () => import('../views/CustomerDetail.vue')
+  },
+  {
+    path: '/customers/edit/:uuid',
+    component: () => import('../views/CustomerEdit.vue'),
+  }
 
 ];
 

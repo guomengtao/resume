@@ -78,7 +78,11 @@ function sanitizeData(data) {
 }
 
 // 支持 GET、POST、PATCH 方法
-async function apiRequest(path, method = 'GET', body = null, headers = {}) {
+async function apiRequest(path, options = {}) {
+  const method = options.method || 'GET';
+  const body = options.body || null;
+  const headers = options.headers || {};
+
   const url = new URL(path, 'http://localhost');
   const pathSegments = url.pathname.split('/').filter(Boolean);
   const table = pathSegments[0];
@@ -99,18 +103,34 @@ async function apiRequest(path, method = 'GET', body = null, headers = {}) {
   } else if (method === 'PATCH') {
     if (!body) throw new Error('PATCH request missing body');
 
-    let id = url.searchParams.get('uuid') || url.searchParams.get('id');
-    if (!id) {
-      id = pathSegments[pathSegments.length - 1];
+    const id = pathSegments.length > 1 ? pathSegments[pathSegments.length - 1] : null;
+    if (!id || id === table) {
+      throw new Error('PATCH request missing id or uuid in path');
     }
-    if (!id) throw new Error('PATCH request missing id or uuid in path');
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const key = uuidRegex.test(id) ? 'uuid' : 'id';
 
-    const { data, error } = await supabase.from(table).update(sanitizeData(body)).eq(key, id);
-    if (error) throw error;
-    return data;
+    console.log('PATCH Debug Info:');
+    console.log('  Full path:', path);
+    console.log('  Table:', table);
+    console.log('  ID:', id);
+    console.log('  Key (id or uuid):', key);
+    console.log('  Payload:', body);
+
+    // Use .eq() instead of .match()
+    const { error } = await supabase
+      .from(table)
+      .update(sanitizeData(body))
+      .eq(key, id);
+
+    if (error) {
+      console.error('PATCH update error:', error);
+      throw error;
+    }
+
+    // Return success without extra select to avoid 400 errors
+    return { success: true };
   } else {
     throw new Error(`HTTP method ${method} not supported`);
   }
