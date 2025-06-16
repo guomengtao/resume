@@ -215,71 +215,79 @@ Supabase 是一个开源后端即服务（BaaS）平台，基于 PostgreSQL 提�
 ## 5.1 开发环境与技术选型说明
 
 系统采用前后端分离架构，开发环境配置如下：
-	•	前端技术：Vue3 + Element Plus + Vite + JavaScript
-	•	后端技术：Spring Boot（Java）、Supabase（PostgreSQL）
-	•	部署环境：GitHub Pages（前端）、Supabase 云平台（后端）
-	•	开发工具：VS Code、IntelliJ IDEA、Postman、Supabase Studio
+
+- 前端技术：Vue3 + Element Plus + Vite + JavaScript
+- 后端技术：Spring Boot（Java）、Supabase（PostgreSQL）
+- 部署环境：GitHub Pages（前端）、Supabase 云平台（后端）
+- 开发工具：VS Code、IntelliJ IDEA、Postman、Supabase Studio
 
 此组合兼顾了开发效率、系统性能与部署灵活性，特别适配中小企业轻量级CRM需求。
 
 ## 5.2 前端实现（Vue3 + Element Plus）
 
 前端采用 Vue3 框架构建，配合 Element Plus 提供一致、清晰、美观的交互界面。结构划分如下：
-	•	views/：存放业务页面（如 Customers.vue、OrdersList.vue）
-	•	components/：通用组件（如 CustomerAdd.vue）
-	•	layout/：页面布局组件（如 SideMenu.vue、TopBar.vue）
-	•	router/index.js：配置页面路由
-	•	apiClient.js：统一封装所有 API 请求，支持动态选择后端（Java 或 Supabase）
+
+  - views/：存放业务页面（如 Customers.vue、OrdersList.vue）
+  - components/：通用组件（如 CustomerAdd.vue）
+  - layout/：页面布局组件（如 SideMenu.vue、TopBar.vue）
+  - router/index.js：配置页面路由
+  - apiClient.js：统一封装所有 API 请求，支持动态选择后端（Java 或 Supabase）
 
 所有页面基于模块化开发，支持响应式布局与移动端适配。
 
 ## 5.3 后端实现（Spring Boot）
 
 后端核心服务由 Spring Boot 提供，主要功能包括：
-	•	客户与订单的增删改查
-	•	销售线索到客户的转化流程
-	•	用户登录与权限控制（基于 Spring Security）
-	•	销售数据分析接口
+
+- 客户与订单的增删改查
+- 销售线索到客户的转化流程
+- 用户登录与权限控制（基于 Spring Security）
+- 销售数据分析接口
 
 接口遵循 RESTful 风格，数据格式采用 JSON。使用 MyBatis 或 JPA 实现数据库访问，配合 HikariCP 连接池提升并发性能。
 
 ## 5.4 AI成单分析功能实现
 
 本系统集成了 AI 跟进助理功能，当前已初步实现以下功能：
-	•	销售跟进页面中，系统根据客户历史数据、订单记录、沟通频次等生成个性化跟进建议；
-	•	显示预测成交概率、复购可能性；
-	•	提供类似客户案例的处理建议，辅助销售人员决策。
+
+- 销售跟进页面中，系统根据客户历史数据、订单记录、沟通频次等生成个性化跟进建议；
+- 显示预测成交概率、复购可能性；
+- 提供类似客户案例的处理建议，辅助销售人员决策。
 
 该模块结合规则引擎与浅层机器学习算法，可持续扩展为深度智能推荐引擎。
 
 ## 5.5 Supabase 快速开发与部署
 
 为提升开发效率并降低部署成本，系统引入 Supabase：
-	•	提供可视化数据库管理与实时 API；
-	•	快速创建表结构与权限控制；
-	•	实现了部分子模块（如留言记录、简易订单查询）的快速开发；
-	•	通过 PostgreSQL View 实现多表联合查询，提高前端数据整合效率；
-	•	当前主系统运行基于 Supabase，配合 GitHub Pages 构建免费 CRM 平台。
+
+- 提供可视化数据库管理与实时 API；
+- 快速创建表结构与权限控制；
+- 实现了部分子模块（如留言记录、简易订单查询）的快速开发；
+- 通过 PostgreSQL View 实现多表联合查询，提高前端数据整合效率；
+- 当前主系统运行基于 Supabase，配合 GitHub Pages 构建免费 CRM 平台。
 
 ## 5.6 系统集成与部署流程
 
 ### 5.6.1 双后端架构
 
 系统支持 Java + Supabase 双后端接口机制，前端通过 apiClient.js 动态判断接口可用性：
-	•	默认优先访问 Java 接口；
-	•	如网络不可达或接口关闭，自动切换至 Supabase API；
-	•	可在配置文件中设定默认后端类型，支持动态切换。
+
+- 默认优先访问 Java 接口；
+- 如网络不可达或接口关闭，自动切换至 Supabase API；
+- 可在配置文件中设定默认后端类型，支持动态切换。
 
 ### 5.6.2 部署流程
-	•	前端使用 vite 打包，部署至 GitHub Pages，访问地址为：https://guomengtao.github.io/web-time-tracker/
-	•	Supabase 后端使用 PostgreSQL 提供数据库与认证服务，自动管理 API；
-	•	Java 后端在测试环境通过 Docker Compose 启动，后期可选私有化部署至云服务器；
-	•	前后端均可实现开箱即用，无需额外服务器。
+
+- 前端使用 vite 打包，部署至 GitHub Pages，访问地址为：https://guomengtao.github.io/web-time-tracker/
+- Supabase 后端使用 PostgreSQL 提供数据库与认证服务，自动管理 API；
+- Java 后端在测试环境通过 Docker Compose 启动，后期可选私有化部署至云服务器；
+- 前后端均可实现开箱即用，无需额外服务器。
 
 ### 5.6.3 运维特点
-	•	无需专职 IT 运维，部署与升级简便；
-	•	数据备份可通过 Supabase 控制台导出；
-	•	支持多终端访问（桌面与移动浏览器）。
+
+- 无需专职 IT 运维，部署与升级简便；
+- 数据备份可通过 Supabase 控制台导出；
+- 支持多终端访问（桌面与移动浏览器）。
 
 
 
@@ -320,9 +328,11 @@ Supabase 是一个开源后端即服务（BaaS）平台，基于 PostgreSQL 提�
   2. 转化为客户信息；
   3. 同时创建订单信息；
   4. 查询客户详情，验证订单数据已关联；
+
 - 预期结果：客户信息正确生成，订单数据完整写入，界面跳转无误。
 
 **测试示例：智能分析模块**
+
 - 验证 AI 推荐结果在客户数据变化后的实时更新；
 - 验证销售漏斗图、复购预测图表是否正确渲染；
 
