@@ -1,0 +1,9 @@
+%% gin-layers-fixed.mmd
+flowchart TD
+    A[Client] -->|HTTP Request| B[Router]
+    B --> C[Controller]
+    C -->|调用| D[Business Layer<br>(Biz)]
+    D -->|调用| E[Service Layer]
+    E -->|调用| F[Data Access Layer<br>(DAO/Repo)]
+    F --> G[(Database)]
+    G --> F --> E --> D --> C -->|HTTP Response| A
