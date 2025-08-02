@@ -1,0 +1,34 @@
+name: Supabase Insert Record & Notify
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 每天 5:00 日本时间
+  workflow_dispatch:
+
+jobs:
+  insert_record:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
+    steps:
+      - name: Insert record into Supabase
+        run: |
+          INSERT_API="$SUPABASE_URL/rest/v1/health_check"
+          SCKEY="SCT291483TJuRUpTBA6z55iQqtMhX32So6"
+
+          NOW=$(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S')
+          JSON="{\"note\": \"Insert from GitHub Actions at $NOW\"}"
+
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$INSERT_API" \
+            -H "apikey: $SUPABASE_API_KEY" \
+            -H "Authorization: Bearer $SUPABASE_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$JSON")
+
+          echo "Supabase 插入返回状态码: $RESPONSE"
+
+          TITLE="📝 Supabase 插入日志"
+          DESP="插入状态码：$RESPONSE%0A时间：$NOW%0A内容：Insert from GitHub Actions"
+
+          curl "https://sctapi.ftqq.com/$SCKEY.send?title=$TITLE&desp=$DESP"
