@@ -28,7 +28,10 @@ jobs:
 
           echo "Supabase 插入返回状态码: $RESPONSE"
 
-          TITLE="📝 Supabase 插入日志"
-          DESP="插入状态码：$RESPONSE%0A时间：$NOW%0A内容：Insert from GitHub Actions"
-
-          curl "https://sctapi.ftqq.com/$SCKEY.send?title=$TITLE&desp=$DESP"
+           TITLE="📝 Supabase 插入日志"
+          DESP="插入状态码：$RESPONSE\n时间：$NOW\n内容：Insert from GitHub Actions"
+          
+          curl -G \
+            --data-urlencode "title=$TITLE" \
+            --data-urlencode "desp=$DESP" \
+            "https://sctapi.ftqq.com/$SCKEY.send"
