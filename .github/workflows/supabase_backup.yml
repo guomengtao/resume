@@ -1,0 +1,29 @@
+name: Supabase Backup to Google Sheets
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 每天日本时间早上5点
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run backup script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
+          GCP_SHEET_CRED: ${{ secrets.GCP_SHEET_CRED }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+        run: python scripts/backup.py
