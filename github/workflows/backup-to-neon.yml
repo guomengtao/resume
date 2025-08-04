@@ -1,0 +1,31 @@
+name: Backup Supabase to Neon
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 每小时运行一次
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install PostgreSQL Client
+        run: sudo apt-get install postgresql-client -y
+
+      - name: Export Supabase DB
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "Exporting Supabase DB..."
+          pg_dump $SUPABASE_DB_URL --data-only --no-owner --no-privileges -Fc -f supabase.dump
+
+      - name: Import to Neon
+        env:
+          NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+        run: |
+          echo "Importing to Neon..."
+          pg_restore --no-owner --no-privileges -d $NEON_DB_URL supabase.dump
