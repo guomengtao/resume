@@ -1,4 +1,4 @@
-name: Supabase to Neon Sync all
+name: Supabase to Neon Sync All Tables
 
 on:
   schedule:
@@ -25,7 +25,8 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+          PGHOST: db.ibwhykivdlzuumcgcssl.supabase.co
+          PGOPTIONS: "-c inet6=off"
         run: |
           export SUPABASE_DB_URL="${SUPABASE_DB_URL}?sslmode=require"
-          export PGOPTIONS="-c inet6=off"
           python scripts/sync_all_tables.py
