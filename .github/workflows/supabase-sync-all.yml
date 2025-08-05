@@ -2,7 +2,7 @@ name: Supabase to Neon Sync All Tables
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小时执行一次
+    - cron: '0 * * * *'  # 每小时运行一次
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
@@ -21,12 +21,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Run Supabase to Neon sync script
+      - name: Run sync script
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
-          PGHOST: db.ibwhykivdlzuumcgcssl.supabase.co
-          PGOPTIONS: "-c inet6=off"
-        run: |
-          export SUPABASE_DB_URL="${SUPABASE_DB_URL}?sslmode=require"
-          python scripts/sync_all_tables.py
+          SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        run: python scripts/sync_all_tables.py
