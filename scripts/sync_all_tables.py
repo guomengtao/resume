@@ -1,11 +1,18 @@
 import os
 import psycopg2
 import requests
-from psycopg2.extras import execute_values
+import json
+from datetime import datetime
 
-SUPABASE_DB_URL = os.environ['SUPABASE_DB_URL']
-NEON_DB_URL = os.environ['NEON_DB_URL']
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
+if SUPABASE_DB_URL and "?sslmode=" not in SUPABASE_DB_URL:
+    SUPABASE_DB_URL += "?sslmode=require"
 
+NEON_DB_URL = os.getenv("NEON_DB_URL")
+
+# ... 后续内容保持不变
+
+# 在此处继续原脚本内容
 
 def get_user_tables():
     with psycopg2.connect(SUPABASE_DB_URL) as conn:
