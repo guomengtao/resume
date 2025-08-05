@@ -1,4 +1,4 @@
-name: Supabase to Neon Sync via API All
+name: Supabase to Neon Sync All tables
 
 on:
   schedule:
@@ -23,7 +23,6 @@ jobs:
 
       - name: Run Supabase to Neon sync script
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
-        run: python scripts/sync_supabase_to_neon.py
+        run: python scripts/sync_all_tables.py
