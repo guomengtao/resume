@@ -1,62 +1,45 @@
 import os
-import requests
 import psycopg2
+import requests
 from psycopg2.extras import execute_values
 
-SUPABASE_URL = os.environ['SUPABASE_URL']
-SUPABASE_API_KEY = os.environ['SUPABASE_API_KEY']
+SUPABASE_DB_URL = os.environ['SUPABASE_DB_URL']
 NEON_DB_URL = os.environ['NEON_DB_URL']
-
-HEADERS = {
-    "apikey": SUPABASE_API_KEY,
-    "Authorization": f"Bearer {SUPABASE_API_KEY}",
-    "Accept": "application/json",
-}
 
 
 def get_user_tables():
-    query = """
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema='public' AND table_type='BASE TABLE';
-    """
-    url = f"{SUPABASE_URL}/rest/v1/rpc"
-    response = requests.post(
-        url,
-        headers={**HEADERS, "Content-Type": "application/json"},
-        json={"q": query},
-    )
-    response.raise_for_status()
-    tables = [row['table_name'] for row in response.json()]
-    return tables
+    with psycopg2.connect(SUPABASE_DB_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE';
+            """)
+            return [row[0] for row in cur.fetchall()]
 
 
 def get_primary_key(table):
-    query = f"""
-        SELECT a.attname as column_name
-        FROM   pg_index i
-        JOIN   pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-        WHERE  i.indrelid = 'public.{table}'::regclass AND i.indisprimary;
-    """
-    url = f"{SUPABASE_URL}/rest/v1/rpc"
-    response = requests.post(
-        url,
-        headers={**HEADERS, "Content-Type": "application/json"},
-        json={"q": query},
-    )
-    response.raise_for_status()
-    results = response.json()
-    return results[0]['column_name'] if results else None
+    with psycopg2.connect(SUPABASE_DB_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"""
+                SELECT a.attname
+                FROM   pg_index i
+                JOIN   pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                WHERE  i.indrelid = 'public.{table}'::regclass AND i.indisprimary;
+            """)
+            result = cur.fetchone()
+            return result[0] if result else None
 
 
 def fetch_rows(table, updated_since=None):
-    params = {"select": "*", "order": "updated_at"}
-    if updated_since:
-        params[f"updated_at.gt"] = updated_since
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
-    response = requests.get(url, headers=HEADERS, params=params)
-    response.raise_for_status()
-    return response.json()
+    with psycopg2.connect(SUPABASE_DB_URL) as conn:
+        with conn.cursor() as cur:
+            if updated_since:
+                cur.execute(f"SELECT * FROM {table} WHERE updated_at > %s ORDER BY updated_at", (updated_since,))
+            else:
+                cur.execute(f"SELECT * FROM {table} ORDER BY updated_at")
+            colnames = [desc[0] for desc in cur.description]
+            return [dict(zip(colnames, row)) for row in cur.fetchall()]
 
 
 def get_latest_updated_at(table):
