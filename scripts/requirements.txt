@@ -1,5 +1,4 @@
 gspread
 oauth2client
 requests
-requests
 psycopg2-binary
