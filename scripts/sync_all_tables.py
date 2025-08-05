@@ -53,6 +53,57 @@ def get_latest_updated_at(table):
                 return None
 
 
+def table_exists_in_neon(table):
+    with psycopg2.connect(NEON_DB_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = %s
+                )
+            """, (table,))
+            return cur.fetchone()[0]
+
+
+def create_table_if_not_exists(table):
+    if table_exists_in_neon(table):
+        return
+
+    with psycopg2.connect(SUPABASE_DB_URL) as source_conn, psycopg2.connect(NEON_DB_URL) as target_conn:
+        with source_conn.cursor() as src, target_conn.cursor() as tgt:
+            src.execute("""
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = %s
+                ORDER BY ordinal_position
+            """, (table,))
+            columns = src.fetchall()
+
+            src.execute(f"""
+                SELECT a.attname
+                FROM   pg_index i
+                JOIN   pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+                WHERE  i.indrelid = 'public.{table}'::regclass AND i.indisprimary;
+            """)
+            pk_result = src.fetchone()
+            pk = pk_result[0] if pk_result else None
+
+            col_defs = []
+            for name, dtype, nullable in columns:
+                line = f"{name} {dtype}"
+                if nullable == 'NO':
+                    line += " NOT NULL"
+                col_defs.append(line)
+
+            if pk:
+                col_defs.append(f"PRIMARY KEY ({pk})")
+
+            create_sql = f"CREATE TABLE {table} ({', '.join(col_defs)});"
+            tgt.execute(create_sql)
+            target_conn.commit()
+            print(f"🆕 Neon中创建表: {table}")
+
+
 def upsert_rows(table, pk_field, rows):
     if not rows:
         print(f"✅ {table}: 无需更新")
@@ -81,6 +132,8 @@ if __name__ == "__main__":
             if not pk:
                 print(f"⚠️ {table}: 未找到主键，跳过")
                 continue
+
+            create_table_if_not_exists(table)
             latest = get_latest_updated_at(table)
             new_rows = fetch_rows(table, updated_since=latest)
             upsert_rows(table, pk, new_rows)
