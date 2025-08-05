@@ -13,26 +13,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install PostgreSQL Client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client netcat
+      - name: Install PostgreSQL Client and Netcat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client netcat-openbsd
 
-      - name: Test network connectivity to Supabase
+      - name: Test connectivity to Supabase DB
         run: |
           echo "Testing connectivity to Supabase DB..."
-          nc -zv db.ibwhykivdlzuumcgcssl.supabase.co 5432 || (echo "Cannot connect to Supabase DB port 5432" && exit 1)
+          nc -zv db.ibwhykivdlzuumcgcssl.supabase.co 5432 || { echo "❌ Cannot connect to Supabase DB port 5432"; exit 1; }
 
       - name: Export Supabase DB
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           echo "Exporting Supabase DB..."
-          # 强制 IPv4 连接并指定 sslmode=require 确保 SSL 连接
+          # 强制使用 IPv4，并启用 SSL
           pg_dump -4 --no-owner --no-privileges -Fc --file=supabase.dump "${SUPABASE_DB_URL}?sslmode=require"
 
-      - name: Test network connectivity to Neon
+      - name: Extract Neon Host
+        id: extract-neon-host
         run: |
-          echo "Testing connectivity to Neon DB..."
-          nc -zv <Neon-Host-From-URL> 5432 || (echo "Cannot connect to Neon DB port 5432" && exit 1)
+          echo "Extracting Neon host from NEON_DB_URL..."
+          host=$(echo "${{ secrets.NEON_DB_URL }}" | sed -E 's|.*@([^:/]+):.*|\1|')
+          echo "NEON_HOST=$host" >> $GITHUB_ENV
+
+      - name: Test connectivity to Neon DB
+        run: |
+          echo "Testing connectivity to Neon DB at $NEON_HOST..."
+          nc -zv "$NEON_HOST" 5432 || { echo "❌ Cannot connect to Neon DB port 5432"; exit 1; }
 
       - name: Import to Neon
         env:
