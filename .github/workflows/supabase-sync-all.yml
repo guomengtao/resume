@@ -1,4 +1,4 @@
-name: Supabase to Neon Sync via API
+name: Supabase to Neon Sync via API All
 
 on:
   schedule:
