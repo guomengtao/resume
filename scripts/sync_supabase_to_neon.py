@@ -7,7 +7,7 @@ SUPABASE_URL = os.environ['SUPABASE_URL']
 SUPABASE_API_KEY = os.environ['SUPABASE_API_KEY']
 NEON_DB_URL = os.environ['NEON_DB_URL']
 
-TABLE_NAME = "your_table_name"     # ✅ 替换为你实际的表名
+TABLE_NAME = "health_check"     # ✅ 替换为你实际的表名
 PRIMARY_KEY = "id"                 # ✅ 替换为你表的主键
 UPDATED_AT_FIELD = "updated_at"    # ✅ 替换为更新时间字段
 
