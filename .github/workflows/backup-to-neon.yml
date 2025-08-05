@@ -14,14 +14,25 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install PostgreSQL Client
-        run: sudo apt-get install postgresql-client -y
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client netcat
+
+      - name: Test network connectivity to Supabase
+        run: |
+          echo "Testing connectivity to Supabase DB..."
+          nc -zv db.ibwhykivdlzuumcgcssl.supabase.co 5432 || (echo "Cannot connect to Supabase DB port 5432" && exit 1)
 
       - name: Export Supabase DB
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           echo "Exporting Supabase DB..."
-          pg_dump --no-owner --no-privileges -Fc --file=supabase.dump "$SUPABASE_DB_URL"
+          # 强制 IPv4 连接并指定 sslmode=require 确保 SSL 连接
+          pg_dump -4 --no-owner --no-privileges -Fc --file=supabase.dump "${SUPABASE_DB_URL}?sslmode=require"
+
+      - name: Test network connectivity to Neon
+        run: |
+          echo "Testing connectivity to Neon DB..."
+          nc -zv <Neon-Host-From-URL> 5432 || (echo "Cannot connect to Neon DB port 5432" && exit 1)
 
       - name: Import to Neon
         env:
