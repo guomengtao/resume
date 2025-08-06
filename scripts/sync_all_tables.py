@@ -1,156 +1,83 @@
 import os
-import psycopg2
 import requests
+import psycopg2
 
-SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
-NEON_DB_URL = os.getenv("NEON_DB_URL")
-SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
+NEON_DB_URL = os.getenv("NEON_DB_URL")
 
-if not all([SUPABASE_DB_URL, NEON_DB_URL, SUPABASE_API_KEY, SUPABASE_URL]):
-    raise Exception("请设置 SUPABASE_DB_URL, NEON_DB_URL, SUPABASE_API_KEY, SUPABASE_URL 环境变量")
+HEADERS = {
+    "apikey": SUPABASE_API_KEY,
+    "Authorization": f"Bearer {SUPABASE_API_KEY}",
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+}
 
-# 添加 sslmode=require
-if "sslmode=" not in SUPABASE_DB_URL:
-    if "?" in SUPABASE_DB_URL:
-        SUPABASE_DB_URL += "&sslmode=require"
-    else:
-        SUPABASE_DB_URL += "?sslmode=require"
-
-print(f"使用的 Supabase DB URL: {SUPABASE_DB_URL}")
-
-def get_user_tables():
-    """
-    使用 Supabase REST API 获取所有用户表名（排除系统表）
-    """
-    url = f"{SUPABASE_URL}/rest/v1/rpc/get_user_tables"
-    headers = {
-        "apikey": SUPABASE_API_KEY,
-        "Authorization": f"Bearer {SUPABASE_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
+def get_table_data(table_name, last_updated=None, updated_at_field="updated_at"):
+    """通过 Supabase REST API 拉取表数据，支持增量拉取"""
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}"
+    params = {
+        "select": "*",
+        "order": f"{updated_at_field}.asc",
+        "limit": 1000,
     }
+    if last_updated:
+        # 过滤只拉更新的数据，Supabase用gte/gt过滤参数
+        params[f"{updated_at_field}"] = f"gt.{last_updated}"
 
-    response = requests.post(url, headers=headers, json={})
-    response.raise_for_status()
-    tables = response.json()
-    return [t["table_name"] for t in tables]
+    data = []
+    offset = 0
+    while True:
+        params["offset"] = offset
+        resp = requests.get(url, headers=HEADERS, params=params)
+        resp.raise_for_status()
+        batch = resp.json()
+        if not batch:
+            break
+        data.extend(batch)
+        offset += len(batch)
+        if len(batch) < params["limit"]:
+            break
+    return data
 
-def get_primary_key(conn, table_name):
-    """获取表主键字段名"""
+def get_latest_updated_at(conn, table_name, updated_at_field="updated_at"):
+    """获取目标库某表最新更新时间"""
     with conn.cursor() as cur:
-        cur.execute(f"""
-            SELECT a.attname
-            FROM   pg_index i
-            JOIN   pg_attribute a ON a.attrelid = i.indrelid
-                               AND a.attnum = ANY(i.indkey)
-            WHERE  i.indrelid = %s::regclass
-            AND    i.indisprimary;
-        """, (table_name,))
-        result = cur.fetchone()
-        return result[0] if result else None
-
-def table_exists(conn, table_name):
-    """判断表是否存在"""
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables
-                WHERE table_name = %s
-            )
-        """, (table_name,))
-        return cur.fetchone()[0]
-
-def create_table_like(conn_src, conn_dst, table_name):
-    """基于 information_schema 复制表结构"""
-    with conn_src.cursor() as cur:
-        cur.execute("""
-            SELECT column_name, data_type, is_nullable, column_default
-            FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = %s
-            ORDER BY ordinal_position
-        """, (table_name,))
-        columns = cur.fetchall()
-
-    column_defs = []
-    for col_name, data_type, is_nullable, default in columns:
-        col_line = f'"{col_name}" {data_type}'
-        if default:
-            col_line += f" DEFAULT {default}"
-        if is_nullable == "NO":
-            col_line += " NOT NULL"
-        column_defs.append(col_line)
-
-    joined_columns = ",\n  ".join(column_defs)
-    create_sql = f'CREATE TABLE "{table_name}" (\n  {joined_columns}\n);'
-
-    with conn_dst.cursor() as cur:
-        cur.execute(create_sql)
-    conn_dst.commit()
-
-def sync_table(conn_src, conn_dst, table_name, primary_key, updated_at_field="updated_at"):
-    """增量同步表，基于 updated_at 字段"""
-    with conn_dst.cursor() as cur_dst:
         try:
-            cur_dst.execute(f"SELECT MAX({updated_at_field}) FROM {table_name}")
-            last_updated = cur_dst.fetchone()[0]
+            cur.execute(f"SELECT MAX({updated_at_field}) FROM {table_name}")
+            return cur.fetchone()[0]
         except Exception:
-            last_updated = None
+            return None
 
-    with conn_src.cursor() as cur_src, conn_dst.cursor() as cur_dst:
-        if last_updated:
-            cur_src.execute(
-                f"SELECT * FROM {table_name} WHERE {updated_at_field} > %s ORDER BY {updated_at_field} ASC",
-                (last_updated,))
-        else:
-            cur_src.execute(f"SELECT * FROM {table_name}")
-
-        rows = cur_src.fetchall()
-        if not rows:
-            return
-
-        columns = [desc[0] for desc in cur_src.description]
+def upsert_data(conn, table_name, rows, primary_key):
+    if not rows:
+        return
+    columns = rows[0].keys()
+    with conn.cursor() as cur:
         for row in rows:
-            values_placeholders = ", ".join(["%s"] * len(row))
-            updates = ", ".join([f"{col} = EXCLUDED.{col}" for col in columns if col != primary_key])
-            insert_sql = f"""
-                INSERT INTO {table_name} ({', '.join(columns)}) 
-                VALUES ({values_placeholders})
-                ON CONFLICT ({primary_key}) DO UPDATE SET {updates}
+            vals = [row[col] for col in columns]
+            placeholders = ", ".join(["%s"] * len(vals))
+            update_clause = ", ".join([f"{col} = EXCLUDED.{col}" for col in columns if col != primary_key])
+            sql = f"""
+                INSERT INTO {table_name} ({', '.join(columns)})
+                VALUES ({placeholders})
+                ON CONFLICT ({primary_key}) DO UPDATE SET {update_clause}
             """
-            try:
-                cur_dst.execute(insert_sql, row)
-            except Exception as e:
-                print(f"同步表 {table_name} 出错: {e}")
-        conn_dst.commit()
+            cur.execute(sql, vals)
+        conn.commit()
 
 def main():
-    try:
-        tables = get_user_tables()
-    except Exception as e:
-        print(f"获取表列表失败: {e}")
-        return
+    # 你可以自己维护表名列表，或用之前RPC查询获得
+    tables = ["health_check", "other_table"]
+    primary_keys = {"health_check": "id", "other_table": "id"}
 
-    with psycopg2.connect(SUPABASE_DB_URL) as conn_src, psycopg2.connect(NEON_DB_URL) as conn_dst:
-        for table_name in tables:
-            print(f"开始同步表 {table_name}...")
-
-            if not table_exists(conn_dst, table_name):
-                print(f"⚠️ Neon中缺少表 {table_name}，正在自动创建...")
-                try:
-                    create_table_like(conn_src, conn_dst, table_name)
-                    print(f"✅ 已创建表 {table_name}")
-                except Exception as e:
-                    print(f"❌ 创建表 {table_name} 失败: {e}")
-                    continue
-
-            pk = get_primary_key(conn_src, table_name)
-            if not pk:
-                print(f"⚠️ 表 {table_name} 没有主键，跳过同步")
-                continue
-
-            sync_table(conn_src, conn_dst, table_name, pk)
-            print(f"✅ 表 {table_name} 同步完成")
+    with psycopg2.connect(NEON_DB_URL) as conn_dst:
+        for table in tables:
+            print(f"同步表 {table} ...")
+            last_updated = get_latest_updated_at(conn_dst, table)
+            rows = get_table_data(table, last_updated)
+            upsert_data(conn_dst, table, rows, primary_keys[table])
+            print(f"表 {table} 同步完成，新增/更新 {len(rows)} 条数据。")
 
 if __name__ == "__main__":
     main()
