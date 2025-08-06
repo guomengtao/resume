@@ -19,7 +19,6 @@ if "sslmode=" not in SUPABASE_DB_URL:
 
 print(f"使用的 Supabase DB URL: {SUPABASE_DB_URL}")
 
-
 def get_user_tables():
     """
     使用 Supabase REST API 获取所有用户表名（排除系统表）
@@ -37,7 +36,6 @@ def get_user_tables():
     tables = response.json()
     return [t["table_name"] for t in tables]
 
-
 def get_primary_key(conn, table_name):
     """获取表主键字段名"""
     with conn.cursor() as cur:
@@ -52,7 +50,6 @@ def get_primary_key(conn, table_name):
         result = cur.fetchone()
         return result[0] if result else None
 
-
 def table_exists(conn, table_name):
     """判断表是否存在"""
     with conn.cursor() as cur:
@@ -63,7 +60,6 @@ def table_exists(conn, table_name):
             )
         """, (table_name,))
         return cur.fetchone()[0]
-
 
 def create_table_like(conn_src, conn_dst, table_name):
     """基于 information_schema 复制表结构"""
@@ -85,12 +81,12 @@ def create_table_like(conn_src, conn_dst, table_name):
             col_line += " NOT NULL"
         column_defs.append(col_line)
 
-    create_sql = f'CREATE TABLE "{table_name}" (\n  {",\n  ".join(column_defs)}\n);'
+    joined_columns = ",\n  ".join(column_defs)
+    create_sql = f'CREATE TABLE "{table_name}" (\n  {joined_columns}\n);'
 
     with conn_dst.cursor() as cur:
         cur.execute(create_sql)
     conn_dst.commit()
-
 
 def sync_table(conn_src, conn_dst, table_name, primary_key, updated_at_field="updated_at"):
     """增量同步表，基于 updated_at 字段"""
@@ -128,7 +124,6 @@ def sync_table(conn_src, conn_dst, table_name, primary_key, updated_at_field="up
                 print(f"同步表 {table_name} 出错: {e}")
         conn_dst.commit()
 
-
 def main():
     try:
         tables = get_user_tables()
@@ -156,7 +151,6 @@ def main():
 
             sync_table(conn_src, conn_dst, table_name, pk)
             print(f"✅ 表 {table_name} 同步完成")
-
 
 if __name__ == "__main__":
     main()
