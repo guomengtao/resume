@@ -3,7 +3,7 @@ import json
 import base64
 import requests
 import gspread
-from datetime import datetime
+from datetime import datetime, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 
 # 1. Google Sheets API 授权
@@ -41,9 +41,12 @@ for table in tables:
     last_updated = "1970-01-01T00:00:00Z"
     if len(records) > 1:
         try:
-            last_updated = records[-1][-1]
+            raw_ts = records[-1][-1]
+            # 转换为符合 PostgreSQL 的 ISO 格式时间戳
+            dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).astimezone(timezone.utc)
+            last_updated = dt.isoformat()
         except:
-            pass
+            last_updated = "1970-01-01T00:00:00Z"
 
     # 拉 Supabase 数据
     params = f"?updated_at=gt.{last_updated}&order=updated_at.asc"
