@@ -2,7 +2,7 @@ name: Backup Supabase to Neon
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小时运行
+    - cron: '0 0 1 * *'  # 每小时运行
   workflow_dispatch:
 
 jobs:
