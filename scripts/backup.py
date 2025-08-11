@@ -6,13 +6,6 @@ import gspread
 from datetime import datetime, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ======= 调试信息：打印环境变量关键值 =======
-print("\n=== Debug Info: Environment Variables ===")
-print(f"SUPABASE_URL: {os.environ.get('SUPABASE_URL')}")
-print(f"SPREADSHEET_ID: {os.environ.get('SPREADSHEET_ID')}")
-print(f"GCP_SHEET_CRED length: {len(os.environ.get('GCP_SHEET_CRED', ''))}")
-print("==========================================\n")
-
 # 1. Google Sheets API 授权
 cred_str = os.environ['GCP_SHEET_CRED']
 cred_dict = json.loads(base64.b64decode(cred_str))
@@ -32,7 +25,6 @@ headers = {
 
 # 拉取所有表名
 tables = requests.post(f"{SUPABASE_URL}/rest/v1/rpc/get_all_user_tables", headers=headers).json()
-print(f"📋 Tables found: {tables}\n")
 
 for table in tables:
     print(f"🔄 Backing up table: {table}")
@@ -43,50 +35,57 @@ for table in tables:
         ws = sheet.worksheet(worksheet_name)
     except gspread.exceptions.WorksheetNotFound:
         ws = sheet.add_worksheet(title=worksheet_name, rows="1000", cols="20")
-        ws.append_row(["id", "note", "updated_at"])
+        ws.append_row(["id", "note", "updated_at"])  # 可以根据实际表结构动态更新
 
     # 读取已有数据，找最后一个 updated_at
     records = ws.get_all_values()
     last_updated = "1970-01-01T00:00:00Z"
+    existing_ids = set()
+
     if len(records) > 1:
         try:
-            raw_ts = records[-1][-1].strip()
+            # 取已存在的所有 ID 用于去重
+            id_index = records[0].index("id") if "id" in records[0] else 0
+            for row in records[1:]:
+                if len(row) > id_index:
+                    existing_ids.add(str(row[id_index]))
+
+            raw_ts = records[-1][-1].strip()  # 最后一行的 updated_at
             dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).astimezone(timezone.utc)
             last_updated = dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         except Exception as e:
             print(f"⚠️ Warning parsing timestamp: {e}")
+            last_updated = "1970-01-01T00:00:00Z"
 
-    print(f"   ➡ Last updated timestamp used for {table}: {last_updated}")
-
-    # 请求参数
+    # 查询 Supabase：gte 避免漏数据
     params = {
-        "updated_at": f"gt.{last_updated}",
+        "updated_at": f"gte.{last_updated}",
         "order": "updated_at.asc"
     }
     url = f"{SUPABASE_URL}/rest/v1/{table}"
-
-    # ======= 调试信息：打印请求细节 =======
-    print(f"   ➡ Request URL: {url}")
-    print(f"   ➡ Request Params: {params}")
-    print(f"   ➡ Request Headers (shortened): {{'apikey': '***', 'Authorization': 'Bearer ***'}}")
-
     resp = requests.get(url, headers=headers, params=params)
 
-    print(f"   ➡ HTTP Status: {resp.status_code}")
-    if resp.status_code != 200:
+    if resp.status_code == 200:
+        new_data = resp.json()
+        print(f"✅ {len(new_data)} rows fetched from {table}")
+
+        if new_data:
+            fields = list(new_data[0].keys())
+
+            # 表头更新（如果 sheet 只有表头或空）
+            if len(records) <= 1:
+                ws.update('A1', [fields])
+
+            # 追加新数据行（去重）
+            added_count = 0
+            for row in new_data:
+                if str(row.get("id", "")) not in existing_ids:
+                    values = [row.get(f, '') for f in fields]
+                    ws.append_row(values)
+                    added_count += 1
+
+            print(f"   ➡ Added {added_count} new rows to {table} (duplicates skipped)")
+    else:
         print(f"❌ Error fetching {table}: {resp.text}")
-        continue
 
-    new_data = resp.json()
-    print(f"✅ {len(new_data)} rows fetched from {table}")
-    if new_data:
-        print(f"   Sample row: {new_data[0]}")  # 打印第一条看看实际内容
-
-        fields = list(new_data[0].keys())
-        if len(records) <= 1:
-            ws.update('A1', [fields])
-        for row in new_data:
-            values = [row.get(f, '') for f in fields]
-            ws.append_row(values)
-
-print("\n=== Backup Finished ===")
+print("=== Backup Finished ===")
