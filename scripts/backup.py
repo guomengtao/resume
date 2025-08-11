@@ -6,6 +6,13 @@ import gspread
 from datetime import datetime, timezone
 from oauth2client.service_account import ServiceAccountCredentials
 
+# ======= 调试信息：打印环境变量关键值 =======
+print("\n=== Debug Info: Environment Variables ===")
+print(f"SUPABASE_URL: {os.environ.get('SUPABASE_URL')}")
+print(f"SPREADSHEET_ID: {os.environ.get('SPREADSHEET_ID')}")
+print(f"GCP_SHEET_CRED length: {len(os.environ.get('GCP_SHEET_CRED', ''))}")
+print("==========================================\n")
+
 # 1. Google Sheets API 授权
 cred_str = os.environ['GCP_SHEET_CRED']
 cred_dict = json.loads(base64.b64decode(cred_str))
@@ -25,6 +32,7 @@ headers = {
 
 # 拉取所有表名
 tables = requests.post(f"{SUPABASE_URL}/rest/v1/rpc/get_all_user_tables", headers=headers).json()
+print(f"📋 Tables found: {tables}\n")
 
 for table in tables:
     print(f"🔄 Backing up table: {table}")
@@ -35,41 +43,50 @@ for table in tables:
         ws = sheet.worksheet(worksheet_name)
     except gspread.exceptions.WorksheetNotFound:
         ws = sheet.add_worksheet(title=worksheet_name, rows="1000", cols="20")
-        ws.append_row(["id", "note", "updated_at"])  # 这里可以改为动态字段识别
+        ws.append_row(["id", "note", "updated_at"])
 
     # 读取已有数据，找最后一个 updated_at
     records = ws.get_all_values()
     last_updated = "1970-01-01T00:00:00Z"
     if len(records) > 1:
         try:
-            raw_ts = records[-1][-1].strip()  # 去掉首尾空格
+            raw_ts = records[-1][-1].strip()
             dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).astimezone(timezone.utc)
-            # 格式化为标准ISO 8601，末尾带Z
             last_updated = dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         except Exception as e:
             print(f"⚠️ Warning parsing timestamp: {e}")
-            last_updated = "1970-01-01T00:00:00Z"
 
-    # 使用 params 传递查询参数，避免手动拼接URL错误
+    print(f"   ➡ Last updated timestamp used for {table}: {last_updated}")
+
+    # 请求参数
     params = {
         "updated_at": f"gt.{last_updated}",
         "order": "updated_at.asc"
     }
     url = f"{SUPABASE_URL}/rest/v1/{table}"
+
+    # ======= 调试信息：打印请求细节 =======
+    print(f"   ➡ Request URL: {url}")
+    print(f"   ➡ Request Params: {params}")
+    print(f"   ➡ Request Headers (shortened): {{'apikey': '***', 'Authorization': 'Bearer ***'}}")
+
     resp = requests.get(url, headers=headers, params=params)
 
-    if resp.status_code == 200:
-        new_data = resp.json()
-        print(f"✅ {len(new_data)} rows fetched from {table}")
-
-        if new_data:
-            fields = list(new_data[0].keys())
-            # 表头更新（如果sheet只有表头或空）
-            if len(records) <= 1:
-                ws.update('A1', [fields])
-            # 追加新数据行
-            for row in new_data:
-                values = [row.get(f, '') for f in fields]
-                ws.append_row(values)
-    else:
+    print(f"   ➡ HTTP Status: {resp.status_code}")
+    if resp.status_code != 200:
         print(f"❌ Error fetching {table}: {resp.text}")
+        continue
+
+    new_data = resp.json()
+    print(f"✅ {len(new_data)} rows fetched from {table}")
+    if new_data:
+        print(f"   Sample row: {new_data[0]}")  # 打印第一条看看实际内容
+
+        fields = list(new_data[0].keys())
+        if len(records) <= 1:
+            ws.update('A1', [fields])
+        for row in new_data:
+            values = [row.get(f, '') for f in fields]
+            ws.append_row(values)
+
+print("\n=== Backup Finished ===")
