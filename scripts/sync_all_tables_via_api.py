@@ -46,7 +46,9 @@ def auto_create_table_in_neon(conn, table_name):
             return
         column_defs = []
         for col in cols:
-            line = f'"{col["column_name"]}" {col["data_type"]}'
+             # ⚡ 替换 uuid_generate_v4 -> gen_random_uuid
+                default_val = col["column_default"].replace("uuid_generate_v4()", "gen_random_uuid()")
+                line += f" DEFAULT {default_val}"
             if col["column_default"]:
                 line += f" DEFAULT {col['column_default']}"
             if col["is_nullable"] == "NO":
